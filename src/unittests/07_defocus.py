@@ -34,14 +34,11 @@ probe.defocus(10*1e2)
 probe.plot()
 
 result = Propagate(probe,potential)
+if hasattr(result, 'cpu'):
+    result = result.cpu()
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
-# Convert result to CPU if on GPU/MPS device
-if hasattr(result, 'cpu'):
-    plot_result = np.absolute(result.cpu())
-else:
-    plot_result = np.absolute(result)
-ax.imshow(plot_result, cmap="inferno")
+ax.imshow(np.absolute(np.fft.fftshift(np.fft.fft2(result))), cmap="inferno")
 plt.show()
 

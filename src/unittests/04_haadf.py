@@ -47,7 +47,7 @@ exitwaves = calculator.run()
 #plt.show()
 
 haadf=HAADFData(exitwaves)
-ary=haadf.calculateADF(preview=False)
+ary=haadf.calculateADF(preview=True)
 xs=haadf.xs ; ys=haadf.ys
 
 #fig, ax = plt.subplots()

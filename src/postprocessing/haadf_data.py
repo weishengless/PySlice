@@ -40,14 +40,15 @@ class HAADFData(WFData):
                               {})
         self.__dict__ = WFData.__dict__
 
-    def calculateADF(self, collection_angle: float = 45, preview: bool = False) -> np.ndarray:
+    def calculateADF(self, inner_mrad: float = 45, outer_mrad = 150, preview: bool = False) -> np.ndarray:
         self.xs=xp.asarray(sorted(list(set(self.probe_positions[:,0]))))
         self.ys=xp.asarray(sorted(list(set(self.probe_positions[:,1]))))
         self.adf=xp.zeros((len(self.xs),len(self.ys)))
         q=xp.sqrt(self.kxs[:,None]**2+self.kys[None,:]**2)
         #print(np.shape(self.wavefunction_data),np.shape(q))
-        radius = (collection_angle * 1e-3) / self.probe.wavelength
-        mask=xp.zeros(q.shape) ; mask[q>radius]=1
+        radius_inner = (inner_mrad * 1e-3) / self.probe.wavelength
+        radius_outer = (outer_mrad * 1e-3) / self.probe.wavelength
+        mask=xp.zeros(q.shape) ; mask[q>=radius_inner]=1 ; mask[q>=radius_outer]=0
         probe_positions=xp.asarray(self.probe_positions)
         for i,x in enumerate(self.xs):
             for j,y in enumerate(self.ys):
