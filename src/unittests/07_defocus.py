@@ -29,7 +29,7 @@ potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 
 # PROBE
 probe=Probe(xs,ys,mrad=30,eV=100e3)
-zmax=np.amax(np.absolute(np.asarray(probe.array)))
+zmax=np.amax(np.absolute(np.asarray(probe.array.cpu())))
 # 3D PLOT OF THE PROBE WAIST
 #probe.defocus(-300)
 zs=np.linspace(-1000,1000,21) # +/- 100 nm (this is units of Angstrom)
@@ -37,7 +37,7 @@ probe.defocus(zs[0]) ; dz=zs[1]-zs[0]
 fig = plt.figure()
 ax = fig.add_subplot(projection = '3d')
 for z in zs:
-	ary=np.absolute(probe.array)
+	ary=np.absolute(probe.array.cpu())
 	CS=plt.contour(probe.xs[::3], probe.ys[::3], (z+ary[::3,::3]/zmax).T) #, levels=lv,alpha=alpha,cmap=cmap) 
 	probe.defocus(dz)
 plt.show()	
