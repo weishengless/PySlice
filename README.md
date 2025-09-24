@@ -1,14 +1,6 @@
 # PySlice
 
-PySlice is a Python package for simulating and analyzing multslice simulations from molecular dynamics trajectories. It implements the **TACAW method** to convert time-domain electron scattering data into frequency-domain spectra, enabling the analysis of phonon dynamics and vibrational modes in materials at the atomic scale.
-
-## Core Value Proposition
-
-The system bridges molecular dynamics simulations with electron microscopy experiments by:
-- Converting LAMMPS MD trajectories into electron diffraction patterns
-- Performing multislice simulations using optimized PyTorch/NumPy implementations
-- Applying FFT-based TACAW analysis to extract frequency-domain information
-- Providing comprehensive visualization and analysis tools for phonon spectroscopy
+PySlice is a Python package for simulating and analyzing multslice simulations from molecular dynamics trajectories. It implements the **TACAW method** to convert time-domain electron scattering data into frequency-domain spectra, enabling the accurate simulation of vibrational electron energy loss spectroscopy.
 
 ## System Architecture
 
@@ -19,11 +11,11 @@ LAMMPS Trajectory → TrajectoryLoader → Trajectory Object
                                             ↓
                              MultisliceCalculator (PyTorch/NumPy)
                                             ↓
-                                     WaveFunction Data (WFData)
+                                 WaveFunction Data (WFData)
                                             ↓
-                                      TACAWData (FFT)
+                                  TACAWData or HAADFData
                                             ↓
-                              Analysis & Visualization
+                                  Analysis & Visualization
 ```
 
 ## Main Data Structures
@@ -42,7 +34,6 @@ class Trajectory:
 The `Trajectory` class stores molecular dynamics data with:
 - OVITO-based loading from LAMMPS dump files
 - Automatic `.npy` caching for faster subsequent loads
-- Element name mapping from LAMMPS types
 
 ### WFData (Wave Function Data)
 ```python
@@ -55,11 +46,6 @@ class WFData:
     layer: np.ndarray                         # Layer indices
     wavefunction_data: np.ndarray             # Complex wavefunctions (probe_positions, time, kx, ky, layer)
 ```
-
-Contains complex wavefunctions from multislice simulations with:
-- Multi-probe and multi-layer support
-- Conversion to TACAW data via `TACAWData(wfdata)` constructor
-- Efficient complex array storage using PyTorch/NumPy
 
 ### TACAWData (Frequency-Domain Analysis)
 ```python
@@ -108,7 +94,6 @@ Features:
 - **Kirkland atomic potentials**: Accurate quantum mechanical form factors
 - **Vectorized probe processing**: Efficient multi-probe STEM support
 - **Caching system**: Automatic frame-level caching in `psi_data/`
-- **Memory efficient**: Smart batching for large datasets
 
 ### Core Physics Classes
 
@@ -267,14 +252,6 @@ def tacaw_viewer(tacaw):
 tacaw_viewer(tacaw_data)
 ```
 
-## Performance & Optimization
-
-### Device Selection
-The calculator automatically selects the best available device:
-1. **CUDA GPU**: Highest performance for NVIDIA GPUs
-2. **MPS**: Apple Silicon acceleration
-3. **CPU**: Fallback with optimized NumPy
-
 ### Caching Strategy
 1. **Trajectory Cache**: `.npy` files avoid repeated OVITO parsing
 2. **Frame Cache**: `psi_data/` stores computed wavefunctions
@@ -283,8 +260,6 @@ The calculator automatically selects the best available device:
 ### Performance Tips
 - Use PyTorch backend for GPU acceleration when available
 - Process trajectories in batches for memory efficiency
-- Enable frame caching for iterative workflows
-- Use probe grids for efficient STEM simulations
 
 ## API Reference
 
@@ -305,11 +280,3 @@ The calculator automatically selects the best available device:
 - `probe_grid(x_range, y_range, nx, ny)` - Generate STEM probe positions
 - `gridFromTrajectory(trajectory, sampling, slice_thickness)` - Setup spatial grids
 
-## Technical Stack
-
-- **Multislice**: PyTorch (GPU) / NumPy (CPU) with Kirkland potentials
-- **MD Loading**: OVITO for LAMMPS trajectories  
-- **FFT**: PyTorch/NumPy FFT for TACAW conversion
-- **Visualization**: Matplotlib with scientific styling
-- **Interactive**: ipywidgets for Jupyter notebooks
-- **Performance**: Vectorized operations, GPU acceleration, smart caching
