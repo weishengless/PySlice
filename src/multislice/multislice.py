@@ -166,7 +166,7 @@ class Probe:
 
         # Convert extent values to CPU if needed
         xs_min = np.amin(self.xs)
-        xs_max = np.amax(self.xs)
+        xs_max = np.amax(self.xs) # TODO technically this should be xs[-1]+dx??
         ys_min = np.amin(self.ys)
         ys_max = np.amax(self.ys)
 
@@ -212,14 +212,20 @@ def create_batched_probes(base_probe, probe_positions, device=None):
         
     n_probes = len(probe_positions)
     probe_arrays = []
-    
+
+    nx = len(base_probe.xs)
+    ny = len(base_probe.ys)
+    dx = base_probe.xs[1] - base_probe.xs[0]
+    dy = base_probe.ys[1] - base_probe.ys[0]
+    lx = nx*dx ; ly = ny*dy
+
     for px, py in probe_positions:
         # Create shifted probe using phase ramp in k-space
         probe_k = xp.fft.fft2(base_probe.array)
         
         # Apply phase ramp for spatial shift
-        kx_shift = xp.exp(2j * xp.pi * base_probe.kxs[:, None] * px)
-        ky_shift = xp.exp(2j * xp.pi * base_probe.kys[None, :] * py)
+        kx_shift = xp.exp(2j * xp.pi * base_probe.kxs[:, None] * (px-lx/2) )
+        ky_shift = xp.exp(2j * xp.pi * base_probe.kys[None, :] * (py-ly/2) )
         probe_k_shifted = probe_k * kx_shift * ky_shift
         
         # Convert back to real space
