@@ -226,6 +226,8 @@ class MultisliceCalculator:
             time=time_array,
             kxs=kxs,
             kys=kys,
+            xs=self.xs,
+            ys=self.ys,
             layer=layer_array,
             wavefunction_data=self.wavefunction_data,
             probe=self.base_probe

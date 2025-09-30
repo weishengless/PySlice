@@ -285,3 +285,4 @@ class TrajectoryLoader:
             box_matrix=atoms.get_cell(),
             timestep=self.timestep
         )
+
