@@ -9,9 +9,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil
 
-#dump="hBN_truncated.lammpstrj" ; dt=.005 ; types={1:"B",2:"N"}
+dump="hBN_truncated.lammpstrj" ; dt=.005 ; types={1:"B",2:"N"}
 #dump="Si_truncated.lammpstrj" ; dt=.002 ; types={1:"Si"}
-dump="silicon.cif" ; dt=.002 ; types={1:"Si"}
+#dump="silicon.cif" ; dt=.002 ; types={1:"Si"}
 
 
 # LOAD TRAJECTORY
@@ -25,7 +25,6 @@ trajectory=trajectory.slice_timesteps( slice_timesteps )
 positions = trajectory.positions[0]
 atom_types=trajectory.atom_types
 xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
-print(xs)
 potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 potential.plot()
 
