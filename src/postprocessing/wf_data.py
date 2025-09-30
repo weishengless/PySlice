@@ -2,9 +2,32 @@
 Wave function data structure.
 """
 from dataclasses import dataclass
-import numpy as np ; xp = np
+import numpy as np
 from typing import List, Tuple
 from ..multislice.multislice import Probe
+
+try:
+    import torch ; xp = torch
+    TORCH_AVAILABLE = True
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    elif torch.backends.mps.is_available():
+        device = torch.device('mps')
+    else:
+        device = torch.device('cpu')
+    if device.type == 'mps':
+        complex_dtype = torch.complex64
+        float_dtype = torch.float32
+    else:
+        complex_dtype = torch.complex128
+        float_dtype = torch.float64
+except ImportError:
+    TORCH_AVAILABLE = False
+    xp = np
+    print("PyTorch not available, falling back to NumPy")
+    complex_dtype = np.complex128
+    float_dtype = np.float64
+
 
 @dataclass
 class WFData:
@@ -33,8 +56,8 @@ class WFData:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         array = self.wavefunction_data[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
-        extent = ( np.amin(self.kxs) , np.amax(self.kxs) , np.amin(self.kys) , np.amax(self.kys) )
-        ax.imshow(np.absolute(array)**.25, cmap="inferno", extent=extent)
+        extent = ( xp.amin(self.kxs) , xp.amax(self.kxs) , xp.amin(self.kys) , xp.amax(self.kys) )
+        ax.imshow( xp.absolute(array)**.25, cmap="inferno", extent=extent )
         plt.show()
 
     def plot_reciprocalspace(self,whichProbe=0,whichTimestep=0):
@@ -44,32 +67,31 @@ class WFData:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         array = self.wavefunction_data[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
-        array = np.fft.ifft2(array)
+        array = xp.fft.ifft2(array)
         extent = ( np.amin(self.xs) , np.amax(self.xs) , np.amin(self.ys) , np.amax(self.ys) )
-        ax.imshow(np.absolute(array)**.25, cmap="inferno", extent=extent)
+        ax.imshow( xp.absolute(array)**.25, cmap="inferno", extent=extent )
         plt.show()
 
-    def defocus(self,dz): # POSITIVE DEFOCUS PUTS BEAM WAIST ABOVE SAMPLE, UNITS OF ANGSTROM
+    def propagate_free_space(self,dz): # UNITS OF ANGSTROM
         kx_grid, ky_grid = xp.meshgrid(self.kxs, self.kys, indexing='ij')
         k_squared = kx_grid**2 + ky_grid**2
         P = xp.exp(-1j * xp.pi * self.probe.wavelength * dz * k_squared)
         #if dz>0:
         self.wavefunction_data = P[None,None,:,:,None] * self.wavefunction_data
-        #if dz<0:
-        #   self.array = xp.fft.ifft2( xp.fft.fft2( self.array ) / P )
 
     def applyMask(self,radius,realOrReciprocal="reciprocal"):
         if realOrReciprocal == "reciprocal":
-            radii = np.sqrt( self.kxs[:,None]**2 + self.kys[None,:]**2 )
+            radii = xp.sqrt( self.kxs[:,None]**2 + self.kys[None,:]**2 )
             mask = np.zeros(radii.shape)
             mask[radii<radius]=1
             self.wavefunction_data*=mask[None,None,:,:,None]
         else:
             radii = np.sqrt( ( self.xs[:,None] - np.mean(self.xs) )**2 +\
                 ( self.ys[None,:] - np.mean(self.ys) )**2 )
-            mask = np.zeros(radii.shape)
+            mask = xp.zeros(radii.shape)
             mask[radii<radius]=1
-            real = np.fft.ifft2(np.fft.ifftshift(self.wavefunction_data,axes=(2,3)),axes=(2,3))
+            kwarg = {"dim":(2,3)} if TORCH_AVAILABLE else {"axes":(2,3)}
+            real = xp.fft.ifft2(xp.fft.ifftshift(self.wavefunction_data,**kwarg),**kwarg)
             real *= mask[None,None,:,:,None]
-            self.wavefunction_data = np.fft.fftshift(np.fft.fft2(real,axes=(2,3)),axes=(2,3))
+            self.wavefunction_data = xp.fft.fftshift(xp.fft.fft2(real,**kwarg),**kwarg)
 

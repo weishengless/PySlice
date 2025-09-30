@@ -22,11 +22,11 @@ np.random.seed(5) ; np.random.shuffle(slice_timesteps)
 slice_timesteps = slice_timesteps[:1]
 trajectory=trajectory.slice_timesteps( slice_timesteps )
 
-positions = trajectory.positions[0]
-atom_types=trajectory.atom_types
-xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
-potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
-potential.plot()
+#positions = trajectory.positions[0]
+#atom_types=trajectory.atom_types
+#xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
+#potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
+#potential.plot()
 
 
 # SET UP SIMULATION
@@ -39,7 +39,7 @@ calculator.base_probe.defocus(-1000)	#     /\       .-'  previously converged.
 # RUN THE SIMULATION					#    /  \   .-'/  \ 
 exitwaves = calculator.run()			#   /    \-'  /    \ 
 # REPROPAGATE TO PROBE FOCAL POINT		#  /  .-' \  / '-.  \ 
-exitwaves.defocus(1000-calculator.lz)	# /.-'     \/     '-.\
+exitwaves.propagate_free_space(1000-calculator.lz)	# /.-'     \/     '-.\
 
 # PREVIEW UNMASKED REAL AND RECIPROCAL SPACE
 exitwaves.plot_reciprocalspace()
