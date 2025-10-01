@@ -50,14 +50,6 @@ class TrajectoryLoader:
 
         self.timestep = timestep if timestep is not None else 1.0
 
-        # Handle backward compatibility
-        if atomic_numbers is not None:
-            logger.warning("atomic_numbers parameter is deprecated. Use atom_mapping instead.")
-            atom_mapping = atomic_numbers
-        elif element_names is not None:
-            logger.warning("element_names parameter is deprecated. Use atom_mapping instead.")
-            atom_mapping = element_names
-
         # Process atom mapping
         self.atomic_numbers = self._process_atom_mapping(atom_mapping)
 
@@ -200,21 +192,27 @@ class TrajectoryLoader:
         # Import file
         try:
             pipeline = import_file(str(self.filepath))
-            # Add unwrap modifier for periodic boundary conditions
-            if hasattr(pipeline.source, 'data') and pipeline.source.data:
-                pipeline.modifiers.append(UnwrapTrajectoriesModifier())
         except Exception as e:
             raise RuntimeError(f"OVITO import failed: {e}")
+
+        # Try to add unwrap modifier - it will be removed later if it fails
+        if hasattr(pipeline.source, 'data') and pipeline.source.data:
+            pipeline.modifiers.append(UnwrapTrajectoriesModifier())
 
         n_frames = pipeline.source.num_frames
         if n_frames == 0:
             raise ValueError("No frames found in trajectory")
 
-        # Get frame 0 data for setup
+        # Get frame 0 data for setup - if unwrap fails, retry without it
         try:
             frame0_data = pipeline.compute(0)
-        except Exception as e:
-            raise RuntimeError(f"Failed to compute frame 0: {e}")
+        except RuntimeError as e:
+            if "Unwrap trajectories" in str(e):
+                logger.info("Unwrap modifier not applicable - proceeding without unwrapping")
+                pipeline.modifiers.clear()
+                frame0_data = pipeline.compute(0)
+            else:
+                raise RuntimeError(f"Failed to compute frame 0: {e}")
 
         self._validate_frame_data(frame0_data, 0)
 
