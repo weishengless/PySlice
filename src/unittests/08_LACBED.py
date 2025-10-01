@@ -31,7 +31,7 @@ trajectories = [ trajectory.slice_timesteps( [i] ) for i in slice_timesteps[:10]
 # /  .-' \  / '-.  \  defocused. 
 #/.-'     \/     '-.\
 
-for i in range(2):
+for i in range(10):
 	# SET UP SIMULATION
 	calculator=MultisliceCalculator()
 	calculator.setup(trajectories[i],aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5)			
@@ -45,15 +45,15 @@ for i in range(2):
 	last_slice_exit = np.fft.ifft2(np.fft.ifftshift(exitwaves.array[0,0,:,:,0]))
 
 # REPROPAGATE TO PROBE FOCAL POINT		
-exitwaves.propagate_free_space(1000-2*calculator.lz)
+exitwaves.propagate_free_space(1000-10*calculator.lz)
 
 # PREVIEW UNMASKED REAL AND RECIPROCAL SPACE
-exitwaves.plot_reciprocalspace()
-exitwaves.plot_realspace()
+#exitwaves.plot_reciprocalspace()
+#exitwaves.plot_realspace()
 
 # APPLY MASK ABOUT REAL-SPACE DIFFRACTED PROBE
 exitwaves.applyMask(5,"real")
 
-exitwaves.plot_realspace()
+#exitwaves.plot_realspace()
 exitwaves.plot_reciprocalspace()
 

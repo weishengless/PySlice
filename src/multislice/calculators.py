@@ -169,6 +169,10 @@ class MultisliceCalculator:
         frames_computed = 0
         frames_cached = 0
 
+        # quality of life sanity checks: user may have set things (e.g. probe array) with the wrong data type (e.g. numpy instead of tensor). let's try to catch and correct those here
+        if isinstance(self.base_probe.array,np.ndarray) and TORCH_AVAILABLE:
+            self.base_probe.array = xp.tensor(self.base_probe.array)
+
         # Process frames one at a time with tqdm progress tracking
         with tqdm(total=self.n_frames, desc="Processing frames", unit="frame") as pbar:
             for frame_idx in range(self.n_frames):
