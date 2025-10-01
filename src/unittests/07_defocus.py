@@ -38,7 +38,10 @@ fig = plt.figure()
 ax = fig.add_subplot(projection = '3d')
 for z in zs:
 	ary=np.absolute(probe.array.cpu())
-	CS=plt.contour(probe.xs[::3], probe.ys[::3], (z+ary[::3,::3]/zmax).T) #, levels=lv,alpha=alpha,cmap=cmap) 
+	# Convert tensors to numpy for matplotlib
+	xs_np = probe.xs.cpu().numpy() if hasattr(probe.xs, 'cpu') else probe.xs
+	ys_np = probe.ys.cpu().numpy() if hasattr(probe.ys, 'cpu') else probe.ys
+	CS=plt.contour(xs_np[::3], ys_np[::3], (z+ary[::3,::3]/zmax).T) #, levels=lv,alpha=alpha,cmap=cmap)
 	probe.defocus(dz)
 plt.show()	
 

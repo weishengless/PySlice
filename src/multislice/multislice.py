@@ -84,12 +84,19 @@ class Probe:
             self.dtype = np.float64
             self.complex_dtype = np.complex128
         
-        self.xs = xs
-        self.ys = ys
         self.mrad = mrad
         self.eV = eV
         self.wavelength = wavelength(eV)
-        
+
+        # Convert coordinate arrays to tensors if using torch (same as Potential class)
+        if self.use_torch:
+            # Use as_tensor to avoid copy warning when input is already a tensor
+            self.xs = torch.as_tensor(xs, dtype=self.dtype, device=self.device)
+            self.ys = torch.as_tensor(ys, dtype=self.dtype, device=self.device)
+        else:
+            self.xs = xs
+            self.ys = ys
+
         nx = len(xs)
         ny = len(ys)
         dx = xs[1] - xs[0]
@@ -147,11 +154,25 @@ class Probe:
         return self.array
     
     def to_device(self, device):
-        """Move probe to specified device."""
-        self.array = self.array.to(device)
-        self.kxs = self.kxs.to(device)
-        self.kys = self.kys.to(device)
+        """Move probe to specified device (similar to Potential.to_device)."""
+        if not self.use_torch:
+            raise RuntimeError("to_device() requires PyTorch")
+
+        # MPS doesn't support float64
+        if hasattr(device, 'type') and device.type == 'mps':
+            dtype, complex_dtype = torch.float32, torch.complex64
+        else:
+            dtype, complex_dtype = torch.float64, torch.complex128
+
+        self.array = self.array.to(device=device, dtype=complex_dtype)
+        self.xs = self.xs.to(device=device, dtype=dtype)
+        self.ys = self.ys.to(device=device, dtype=dtype)
+        self.kxs = self.kxs.to(device=device, dtype=dtype)
+        self.kys = self.kys.to(device=device, dtype=dtype)
+
         self.device = device
+        self.dtype = dtype
+        self.complex_dtype = complex_dtype
         return self
 
     def plot(self):
@@ -164,11 +185,11 @@ class Probe:
         if hasattr(plot_array, 'cpu'):
             plot_array = plot_array.cpu()
 
-        # Convert extent values to CPU if needed
-        xs_min = np.amin(self.xs)
-        xs_max = np.amax(self.xs) # TODO technically this should be xs[-1]+dx??
-        ys_min = np.amin(self.ys)
-        ys_max = np.amax(self.ys)
+        # Convert extent values to CPU if needed (use xp for torch/numpy compatibility)
+        xs_min = xp.amin(self.xs)
+        xs_max = xp.amax(self.xs) # TODO technically this should be xs[-1]+dx??
+        ys_min = xp.amin(self.ys)
+        ys_max = xp.amax(self.ys)
 
         if hasattr(xs_min, 'cpu'):
             xs_min = xs_min.cpu()
@@ -198,31 +219,41 @@ def probe_grid(xlims,ylims,n,m):
 def create_batched_probes(base_probe, probe_positions, device=None):
     """
     Create a batch of shifted probes for vectorized processing.
-    
+
     Args:
         base_probe: ProbeTorch object
         probe_positions: List of (x,y) positions
         device: PyTorch device
-        
+
     Returns:
         probe object with an array of shape (n_probes, nx, ny)
     """
-    #if device is None:
-    #    device = base_probe.device
-        
+    # Move probe to correct device if needed
+    if device is not None and TORCH_AVAILABLE:
+        # Always move to ensure array is actually on the device
+        # (checking base_probe.device may not reflect actual array device)
+        base_probe.to_device(device)
+
     n_probes = len(probe_positions)
     probe_arrays = []
 
     nx = len(base_probe.xs)
     ny = len(base_probe.ys)
-    dx = base_probe.xs[1] - base_probe.xs[0]
-    dy = base_probe.ys[1] - base_probe.ys[0]
+
+    # Compute dx, dy on same device as probe
+    if TORCH_AVAILABLE and hasattr(base_probe.xs, 'device'):
+        dx = (base_probe.xs[1] - base_probe.xs[0]).item()
+        dy = (base_probe.ys[1] - base_probe.ys[0]).item()
+    else:
+        dx = base_probe.xs[1] - base_probe.xs[0]
+        dy = base_probe.ys[1] - base_probe.ys[0]
+
     lx = nx*dx ; ly = ny*dy
 
     for px, py in probe_positions:
         # Create shifted probe using phase ramp in k-space
         probe_k = xp.fft.fft2(base_probe.array)
-        
+
         # Apply phase ramp for spatial shift
         kx_shift = xp.exp(2j * xp.pi * base_probe.kxs[:, None] * (px-lx/2) )
         ky_shift = xp.exp(2j * xp.pi * base_probe.kys[None, :] * (py-ly/2) )

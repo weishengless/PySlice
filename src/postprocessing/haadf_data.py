@@ -54,7 +54,7 @@ class HAADFData(WFData):
             for j,y in enumerate(self.ys):
                 dxy=xp.sqrt( xp.sum( (probe_positions-xp.asarray([x,y])[None,:])**2,axis=1 ) )
                 p=xp.argmin(dxy)
-                exits=self.wavefunction_data[p,:,:,:,-1] # which probe position, all frames, kx, ky, last layer
+                exits=self.array[p,:,:,:,-1] # which probe position, all frames, kx, ky, last layer
                 if preview and i==0 and j==0:
                     import matplotlib.pyplot as plt
                     fig, ax = plt.subplots()

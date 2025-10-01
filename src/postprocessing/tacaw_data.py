@@ -86,7 +86,7 @@ class TACAWData(WFData):
 
         # Extract wavefunction data for the specified layer
         # Shape: (probe_positions, time, kx, ky, layer)
-        wf_layer = self.wavefunction_data[:, :, :, :, layer_index]
+        wf_layer = self.array[:, :, :, :, layer_index]
         
         # Perform FFT along time axis (axis=1) for each probe position and k-point
         # Following abeels.py approach: subtract mean to avoid high zero-frequency peak
