@@ -240,7 +240,7 @@ def create_batched_probes(base_probe, probe_positions, device=None):
 
     return Probe(base_probe.xs, base_probe.ys, base_probe.mrad, base_probe.eV, array=array, device=base_probe.device)
 
-def Propagate(probe, potential, device=None):
+def Propagate(probe, potential, device=None, progress=False):
     """
     PyTorch-accelerated multislice propagation function.
     Supports both single probe and batched multi-probe processing.
@@ -280,8 +280,15 @@ def Propagate(probe, potential, device=None):
     k_squared = kx_grid**2 + ky_grid**2
     P = xp.exp(-1j * xp.pi * probe.wavelength * dz * k_squared)
     
+    if progress:
+        localtqdm = tqdm
+        print("propagating through slices")
+    else:
+        def localtqdm(iterator):
+            return iterator
+
     # Vectorized multislice propagation through each slice
-    for z in range(len(potential.zs)):
+    for z in localtqdm(range(len(potential.zs))):
         # Transmission function: t = exp(iσV(x,y,z))
         # All tensors should already be on the correct device from creation
         potential_slice = potential.array[:, :, z]

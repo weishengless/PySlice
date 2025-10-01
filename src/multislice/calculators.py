@@ -180,11 +180,14 @@ class MultisliceCalculator:
                 positions = self.trajectory.positions[frame_idx]
                 atom_types = self.trajectory.atom_types
                 
-                args = (frame_idx, positions, atom_types, self.xs, self.ys, self.zs, 
+                args = [ frame_idx, positions, atom_types, self.xs, self.ys, self.zs, 
                        self.aperture, self.voltage_eV, self.base_probe, self.probe_positions, self.element_map, 
-                       cache_file, self.slice_axis)
+                       cache_file, self.slice_axis ]
                 
                 # Process frame
+                if frame_idx == 0 and self.n_frames == 1:
+                    args[0] = -1
+
                 frame_idx_result, frame_data, was_cached = _process_frame_worker_torch(args)
                 
                 # Store result
@@ -280,14 +283,14 @@ def _process_frame_worker_torch(args):
             atom_type_names.append(atom_type)
     
     #try:
-    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=worker_device, slice_axis=slice_axis)
+    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=worker_device, slice_axis=slice_axis, progress=(frame_idx==-1))
 
     n_probes = len(probe_positions)
     nx, ny = len(xs), len(ys)
     frame_data = xp.zeros((n_probes, nx, ny, 1, 1), dtype=complex_dtype)
     
     batched_probes = create_batched_probes(probe, probe_positions, worker_device)
-    exit_waves_batch = Propagate(batched_probes, potential, worker_device)
+    exit_waves_batch = Propagate(batched_probes, potential, worker_device, progress=(frame_idx==-1))
         
     # Convert all exit waves to k-space
     kwarg = {"dim":(-2,-1)} if TORCH_AVAILABLE else {"axes":(-2,-1)}

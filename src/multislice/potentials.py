@@ -185,7 +185,7 @@ def loadKirkland(device='cpu'):
         kirklandABCDs = np.asarray(kirkland_params)
 
 class Potential:    
-    def __init__(self, xs, ys, zs, positions, atomTypes, kind="kirkland", device=None, slice_axis=2):
+    def __init__(self, xs, ys, zs, positions, atomTypes, kind="kirkland", device=None, slice_axis=2, progress=False):
         # Set up device and backend first
         if TORCH_AVAILABLE:
             # Auto-detect device if not specified
@@ -299,7 +299,13 @@ class Potential:
             if len(slice_coords) == 0:
                 continue
                 
-            for slice_idx in range(self.n_slices):
+            if progress:
+                localtqdm = tqdm
+                print("generating potential for slices")
+            else:
+                def localtqdm(iterator):
+                    return iterator
+            for slice_idx in localtqdm(range(self.n_slices)):
                 # Vectorized spatial masking using correct slice coordinates
                 slice_min = self.slice_coords[slice_idx] - self.slice_spacing/2 if slice_idx > 0 else 0
                 slice_max = self.slice_coords[slice_idx] + self.slice_spacing/2 if slice_idx < self.n_slices-1 else self.slice_coords[-1] + self.slice_spacing
@@ -332,7 +338,7 @@ class Potential:
         # Slice-by-slice IFFT to match NumPy implementation exactly
         device_kwargs = {'device': device} if self.use_torch else {}
         potential_real = xp.zeros((nx, ny, self.n_slices), dtype=float_dtype, **device_kwargs)
-        for slice_idx in range(self.n_slices):
+        for slice_idx in localtqdm(range(self.n_slices)):
             potential_slice = xp.fft.ifft2(reciprocal[:, :, slice_idx])
             potential_real[:, :, slice_idx] = xp.real(potential_slice)
         

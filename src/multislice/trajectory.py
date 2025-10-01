@@ -60,7 +60,7 @@ class Trajectory:
             return np.empty((0, 3), dtype=self.positions.dtype)
         return np.mean(self.positions, axis=0)
 
-    def tile_positions(self, repeats: Tuple[int, int, int]) -> 'Trajectory':
+    def tile_positions(self, repeats: Tuple[int, int, int], trajectories:list = None) -> 'Trajectory':
         """
         Tile the positions by repeating the system in 3D space.
 
@@ -86,10 +86,13 @@ class Trajectory:
         tiled_velocities = []
         tiled_atom_types = []
 
-        for offset in offsets:
-            tiled_positions.append(self.positions + offset)
-            tiled_velocities.append(self.velocities)
-            tiled_atom_types.append(self.atom_types)
+        if trajectories is None or len(trajectories) != len(offsets):
+            trajectories = [ self ]*len(offsets)
+
+        for offset,traj in zip(offsets,trajectories):
+            tiled_positions.append(traj.positions + offset)
+            tiled_velocities.append(traj.velocities)
+            tiled_atom_types.append(traj.atom_types)
 
         # Concatenate all tiles
         new_positions = np.concatenate(tiled_positions, axis=1)
