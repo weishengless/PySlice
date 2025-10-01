@@ -78,7 +78,9 @@ class MultisliceCalculator:
     def _generate_cache_key(self, trajectory, aperture, voltage_eV,
                            slice_thickness, sampling, probe_positions):
         """Generate unique cache key for simulation parameters."""
+        firstNAtoms = [ str(np.round(v,4)) for v in trajectory.positions[0,:10,0] ] # first timestep's first 10 atom's x positions
         params = {
+            'firstNAtoms': ",".join(firstNAtoms), # WHY? prevents the same script from re-using psi_data when positions change
             'n_frames': trajectory.n_frames,
             'n_atoms': trajectory.n_atoms,
             'box_matrix': trajectory.box_matrix.tolist(),
@@ -229,7 +231,7 @@ class MultisliceCalculator:
             xs=self.xs,
             ys=self.ys,
             layer=layer_array,
-            wavefunction_data=self.wavefunction_data,
+            array=self.wavefunction_data,
             probe=self.base_probe
         )
         

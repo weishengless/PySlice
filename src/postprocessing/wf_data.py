@@ -40,7 +40,7 @@ class WFData:
         kx: kx sampling vectors.
         ky: ky sampling vectors.
         layer: Layer indices for multi-layer calculations.
-        wavefunction_data: Complex wavefunction array with shape (probe_positions, time, kx, ky, layer).
+        array: Complex wavefunction array with shape (probe_positions, time, kx, ky, layer).
     """
     probe_positions: List[Tuple[float, float]]
     time: np.ndarray  # Time in picoseconds (frame # * timestep)
@@ -49,13 +49,13 @@ class WFData:
     xs: np.ndarray
     ys: np.ndarray
     layer: np.ndarray # Layer indices
-    wavefunction_data: np.ndarray  # Complex wavefunction array (probe_positions, time, kx, ky, layer)
+    array: np.ndarray  # Complex reciprocal-space wavefunction array (probe_positions, time, kx, ky, layer)
     probe: Probe
 
     def plot(self,whichProbe=0,whichTimestep=0):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        array = self.wavefunction_data[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
+        array = self.array[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
         extent = ( xp.amin(self.kxs) , xp.amax(self.kxs) , xp.amin(self.kys) , xp.amax(self.kys) )
         ax.imshow( xp.absolute(array)**.25, cmap="inferno", extent=extent )
         plt.show()
@@ -66,7 +66,7 @@ class WFData:
     def plot_realspace(self,whichProbe=0,whichTimestep=0):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        array = self.wavefunction_data[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
+        array = self.array[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
         array = xp.fft.ifft2(array)
         extent = ( np.amin(self.xs) , np.amax(self.xs) , np.amin(self.ys) , np.amax(self.ys) )
         ax.imshow( xp.absolute(array)**.25, cmap="inferno", extent=extent )
@@ -77,21 +77,21 @@ class WFData:
         k_squared = kx_grid**2 + ky_grid**2
         P = xp.exp(-1j * xp.pi * self.probe.wavelength * dz * k_squared)
         #if dz>0:
-        self.wavefunction_data = P[None,None,:,:,None] * self.wavefunction_data
+        self.array = P[None,None,:,:,None] * self.array
 
     def applyMask(self,radius,realOrReciprocal="reciprocal"):
         if realOrReciprocal == "reciprocal":
             radii = xp.sqrt( self.kxs[:,None]**2 + self.kys[None,:]**2 )
             mask = np.zeros(radii.shape)
             mask[radii<radius]=1
-            self.wavefunction_data*=mask[None,None,:,:,None]
+            self.array*=mask[None,None,:,:,None]
         else:
             radii = np.sqrt( ( self.xs[:,None] - np.mean(self.xs) )**2 +\
                 ( self.ys[None,:] - np.mean(self.ys) )**2 )
             mask = xp.zeros(radii.shape)
             mask[radii<radius]=1
             kwarg = {"dim":(2,3)} if TORCH_AVAILABLE else {"axes":(2,3)}
-            real = xp.fft.ifft2(xp.fft.ifftshift(self.wavefunction_data,**kwarg),**kwarg)
+            real = xp.fft.ifft2(xp.fft.ifftshift(self.array,**kwarg),**kwarg)
             real *= mask[None,None,:,:,None]
-            self.wavefunction_data = xp.fft.fftshift(xp.fft.fft2(real,**kwarg),**kwarg)
+            self.array = xp.fft.fftshift(xp.fft.fft2(real,**kwarg),**kwarg)
 
