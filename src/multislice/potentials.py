@@ -361,7 +361,7 @@ class Potential:
         self.device = device
         return self
 
-    def plot(self):
+    def plot(self,filename=""):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         array = xp.sum(xp.absolute(self.array),axis=2).T # imshow convention: y,x. our convention: x,y
@@ -383,5 +383,8 @@ class Potential:
 
         extent = (xs_min, xs_max, ys_min, ys_max)
         ax.imshow(array, cmap="inferno",extent=extent)
-        plt.show()
+        if len(filename)>3:
+            plt.savefig(filename)
+        else:
+            plt.show()
 

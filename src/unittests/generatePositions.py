@@ -33,8 +33,22 @@ for i in range(nx):
 
 lx=a*nx ; ly=b*ny ; lz=c*nz
 
-# save off positions file
+# LAMMPS INPUT FILE
+#[ "0.0 "+str(n*l)+" "+c+"lo "+c+"hi" for n,l,c in zip([nx,ny,nz],[a,b,c],["x","y","z"])] +\
+lines=[ "########### "+sys.argv[0]+" "+datetime.now().strftime('%Y/%m/%d %H:%M:%S')+" ###########",
+	str(len(atoms))+" atoms" , "" , "1 atom types", "" ] +\
+[ "0.0 "+str(lx)+" xlo xhi" , "0.0 "+str(ly)+" ylo yhi" , "0.0 "+str(lz)+" zlo zhi" ] +\
+[ "" , "Masses" , "" ] +\
+[ str(n+1)+" "+str(m) for n,m in enumerate(masses) ] +\
+[ "Atoms" , "" ] +\
+[ str(n+1)+" 1 "+str(int(a[3]))+" "+str(float(a[0]))+" "+str(float(a[1]))+" "+str(float(a[2])) for n,a in enumerate(atoms) ]
 
+with open("silicon.positions",'w') as f:
+	for l in lines:
+		f.write(l+"\n")
+
+
+# XYZ FILE, SIMPLY ATOMICTYPE X Y Z
 #[ "0.0 "+str(n*l)+" "+c+"lo "+c+"hi" for n,l,c in zip([nx,ny,nz],[a,b,c],["x","y","z"])] +\
 lines=[ str(len(atoms)) , "" ] +\
 [ "Si\t"+str(float(a[0]))+"\t"+str(float(a[1]))+"\t"+str(float(a[2])) for n,a in enumerate(atoms) ]
@@ -43,7 +57,9 @@ with open("silicon.xyz",'w') as f:
 	for l in lines:
 		f.write(l+"\n")
 
+# CONVERT XYZ TO CIF
 from ase.io import read
 atoms = read("silicon.xyz")
+
 from ase.io import write
 write("silicon.cif",atoms)

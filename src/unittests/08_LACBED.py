@@ -22,14 +22,17 @@ np.random.seed(5) ; np.random.shuffle(slice_timesteps)
 trajectories = [ trajectory.slice_timesteps( [i] ) for i in slice_timesteps[:10] ]
 
 # WHAT IS LACBED? 
-#  \  Defocused sample yields diffraction
-#   \  spots at the original sample plane. 
-#    \___________/  Each spot is a real-space
-#    /\       .-'  probe, and the magnification
-#   /  \   .-'/  \  of the diffraction pattern
-#  /    \-'  /    \  depending on the distance
-# /  .-' \  / '-.  \  defocused. 
-#/.-'     \/     '-.\
+#  \  Defocused sample yields diffraction spots at
+#   \  the original sample plane. Each spot is a
+#    \___________/  real-space probe, and the
+#    /\       .-'  magnification of the diffraction
+#   /  \   .-'/  \  pattern depends on the distance
+#  /    \-'  /    \  defocused. With Midgley, you're
+# /  .-' \  / '-.  \  interested in this diffraction
+#/.-'     \/     '-.\  pattern, but with LACBED, you
+#        (__)  apply a selected-area aperture to one
+#        /  \  and go back to reciprocal space to 
+#       /    \  view the "texture" of a single disk
 
 for i in range(10):
 	# SET UP SIMULATION
