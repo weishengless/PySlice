@@ -11,7 +11,7 @@ class Trajectory:
     positions: np.ndarray
     velocities: np.ndarray
     box_matrix: np.ndarray
-    timestep: float  # Timestep in picoseconds
+    timestep: float  # Timestep in picosecondss
 
     def __post_init__(self):
         """Validate trajectory data."""
