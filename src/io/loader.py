@@ -28,7 +28,8 @@ class TrajectoryLoader:
                  atom_mapping: Optional[Dict[int, Union[int, str]]] = None,
                  # Keep old parameters for backward compatibility but deprecated
                  atomic_numbers: Optional[Dict[int, int]] = None,
-                 element_names: Optional[Dict[int, str]] = None):
+                 element_names: Optional[Dict[int, str]] = None,
+                 ovitokwargs: Optional[Dict[str,str]] = None ):
         """
         Initialize trajectory loader for various trajectory file formats.
 
@@ -49,6 +50,8 @@ class TrajectoryLoader:
             raise FileNotFoundError(f"Trajectory file not found: {filename}")
 
         self.timestep = timestep if timestep is not None else 1.0
+
+        self.ovitokwargs = ovitokwargs if ovitokwargs is not None else {}
 
         # Process atom mapping
         self.atomic_numbers = self._process_atom_mapping(atom_mapping)
@@ -191,7 +194,7 @@ class TrajectoryLoader:
 
         # Import file
         try:
-            pipeline = import_file(str(self.filepath))
+            pipeline = import_file(str(self.filepath),**self.ovitokwargs)
         except Exception as e:
             raise RuntimeError(f"OVITO import failed: {e}")
 

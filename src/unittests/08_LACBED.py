@@ -20,6 +20,8 @@ trajectory=TrajectoryLoader(dump,timestep=dt,atom_mapping=types).load()
 slice_timesteps = np.arange(trajectory.n_frames)
 np.random.seed(5) ; np.random.shuffle(slice_timesteps)
 trajectories = [ trajectory.slice_timesteps( [i] ) for i in slice_timesteps[:10] ]
+trajectory = trajectories[0].tile_positions([1,1,10],trajectories)
+#trajectory = trajectories[0]
 
 # WHAT IS LACBED? 
 #  \  Defocused sample yields diffraction spots at
@@ -34,6 +36,7 @@ trajectories = [ trajectory.slice_timesteps( [i] ) for i in slice_timesteps[:10]
 #        /  \  and go back to reciprocal space to 
 #       /    \  view the "texture" of a single disk
 
+# OPTION ONE, CYCLE ITERATIVELY
 for i in range(10):
 	# SET UP SIMULATION
 	calculator=MultisliceCalculator()
@@ -60,3 +63,12 @@ exitwaves.applyMask(5,"real")
 #exitwaves.plot_realspace()
 exitwaves.plot_reciprocalspace()
 
+
+# OPTION TWO, LET TRAJECTORY.PY DO THE STACKING
+calculator=MultisliceCalculator()
+calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5)			
+calculator.base_probe.defocus(-1000)
+exitwaves = calculator.run()
+exitwaves.propagate_free_space(1000-calculator.lz)
+exitwaves.applyMask(5,"real")
+exitwaves.plot_reciprocalspace()

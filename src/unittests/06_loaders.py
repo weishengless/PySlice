@@ -15,18 +15,18 @@ for f in outfiles:
 # https://www.ovito.org/manual/usage/data_model.html#usage-particle-properties
 
 # define our test input files. all of these should be supported
-testFiles={#"silicon.positions":{"atom_style":"molecular","unwrap":False},	# lammps input positions file, generated via generatePositions.py
-	"silicon.xyz":{"unwrap":False},	# xyz file following wikipedia conventions (https://en.wikipedia.org/wiki/XYZ_file_format), generated via generatePositions.py
-	#"silicon.cif":None,				# generated via ase.io.read/write from silicon.xyz
-	"hBN.cif":None,					# taken from DOI: 10.1016/j.matlet.2006.07.108 https://materials.springer.com/isp/crystallographic/docs/sd_1923917
-	"hBN.xyz":None,					# taken from DOI: 10.17863/CAM.66112
+testFiles={"silicon.positions":{"atom_style":"molecular"},	# lammps input positions file, generated via generatePositions.py
+	"silicon.xyz":None,			# xyz file following wikipedia conventions (https://en.wikipedia.org/wiki/XYZ_file_format), generated via generatePositions.py
+	"silicon.cif":None,		# generated via ase.io.read/write from silicon.xyz
+	"hBN.cif":None,				# taken from DOI: 10.1016/j.matlet.2006.07.108 https://materials.springer.com/isp/crystallographic/docs/sd_1923917
+	"hBN.xyz":None,				# taken from DOI: 10.17863/CAM.66112
 	"hBN_truncated.lammpstrj":None}	# multiple timesteps, generated via a custom dump command from lammps
 
 
 # for each: load, generate potential, plot potential
 for i,filename in enumerate(testFiles.keys()):
 	print("attempting to load",filename)
-	trajectory=TrajectoryLoader(filename).load()
+	trajectory=TrajectoryLoader(filename,ovitokwargs=testFiles[filename]).load()
 	#trajectory = trajectory.generate_random_displacements(n_displacements=10,sigma=1)
 	#print(len(trajectory.positions))
 	positions = trajectory.positions[0]
