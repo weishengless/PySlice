@@ -148,10 +148,10 @@ for size in supercell_sizes:
     if device == 'cuda':
         torch.cuda.empty_cache()
 
-    # Clear Dask cache
+    # Disable Dask caching by using synchronous scheduler
     try:
         import dask
-        dask.cache.clear()
+        dask.config.set(scheduler='synchronous')
     except:
         pass
 
@@ -169,13 +169,6 @@ for size in supercell_sizes:
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
-
-    # Clear Dask cache again after warmup to force fresh computation
-    try:
-        import dask
-        dask.cache.clear()
-    except:
-        pass
 
     atoms_copy = atoms.copy()
     potential = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
@@ -264,10 +257,10 @@ for n_probes in probe_counts:
     if device == 'cuda':
         torch.cuda.empty_cache()
 
-    # Clear Dask cache
+    # Disable Dask caching by using synchronous scheduler
     try:
         import dask
-        dask.cache.clear()
+        dask.config.set(scheduler='synchronous')
     except:
         pass
 
@@ -301,13 +294,6 @@ for n_probes in probe_counts:
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
-
-    # Clear Dask cache again after warmup to force fresh computation
-    try:
-        import dask
-        dask.cache.clear()
-    except:
-        pass
 
     atoms_copy = atoms.copy()
     potential = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
