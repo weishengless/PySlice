@@ -271,18 +271,26 @@ def create_batched_probes(base_probe, probe_positions, device=None):
 
     return Probe(base_probe.xs, base_probe.ys, base_probe.mrad, base_probe.eV, array=array, device=base_probe.device)
 
+<<<<<<< HEAD
 def Propagate(probe, potential, device=None, progress=False, onthefly=True):
+=======
+def Propagate(probe, potential, device=None, progress=False, store_all_slices=False):
+>>>>>>> 4319b94 (initial changes to support multiple layer output)
     """
     PyTorch-accelerated multislice propagation function.
     Supports both single probe and batched multi-probe processing.
-    
+
     Args:
         probe: ProbeTorch object or tensor with shape (n_probes, nx, ny)
         potential: Potential object (can be NumPy or PyTorch version)
         device: PyTorch device (None for auto-detection)
-        
+        progress: Show progress bar
+        store_all_slices: If True, return wavefunction at each slice instead of just exit wave
+
     Returns:
         torch.Tensor: Exit wavefunction(s) after multislice propagation
+                     If store_all_slices=True, shape is (n_probes, nx, ny, n_slices)
+                     Otherwise, shape is (n_probes, nx, ny) or (nx, ny) for single probe
     """
     if device is not None and not TORCH_AVAILABLE:
         raise ImportError("PyTorch not available. Please install PyTorch.")
@@ -304,13 +312,13 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True):
     
     # Initialize wavefunction with probe(s) - shape: (n_probes, nx, ny)
     array = probe.array #.clone()
-    
+
     # Pre-compute propagation operator in k-space (Fresnel propagation)
     # All tensors should already be on the correct device from creation
     kx_grid, ky_grid = xp.meshgrid(potential.kxs, potential.kys, indexing='ij')
     k_squared = kx_grid**2 + ky_grid**2
     P = xp.exp(-1j * xp.pi * probe.wavelength * dz * k_squared)
-    
+
     if progress:
         localtqdm = tqdm
         print("propagating through slices")
@@ -318,8 +326,20 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True):
         def localtqdm(iterator):
             return iterator
 
+<<<<<<< HEAD
     if not onthefly:
         potential.build()
+=======
+    # Storage for all slices if requested
+    if store_all_slices:
+        n_probes = array.shape[0]
+        nx, ny = array.shape[1], array.shape[2]
+        n_slices = len(potential.zs)
+        if TORCH_AVAILABLE:
+            all_slices = xp.zeros((n_probes, nx, ny, n_slices), dtype=complex_dtype, device=device)
+        else:
+            all_slices = xp.zeros((n_probes, nx, ny, n_slices), dtype=complex_dtype)
+>>>>>>> 4319b94 (initial changes to support multiple layer output)
 
     # Vectorized multislice propagation through each slice
     for z in localtqdm(range(len(potential.zs))):
@@ -330,11 +350,15 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True):
         else:
             potential_slice = potential.array[:, :, z]
         t = xp.exp(1j * sigma * potential_slice)
-        
+
         # Apply transmission to all probes: ψ' = t × ψ
         # Broadcasting: t[nx,ny] * array[n_probes,nx,ny] = array[n_probes,nx,ny]
         array = t[None, :, :] * array
-        
+
+        # Store wavefunction at this slice if requested
+        if store_all_slices:
+            all_slices[:, :, :, z] = array
+
         # Fresnel propagation to next slice (except for last slice)
         if z < len(potential.zs) - 1:
             # Vectorized FFT over spatial dimensions for all probes
@@ -342,7 +366,11 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True):
             fft_array = xp.fft.fft2(array, **kwarg)
             propagated_fft = P[None, :, :] * fft_array
             array = xp.fft.ifft2(propagated_fft, **kwarg)
-    
+
+    # Return all slices or just exit wave
+    if store_all_slices:
+        return all_slices
+
     # Return single probe result if input was single, otherwise return batch
     if array.shape[0] == 1:
         return array.squeeze(0)

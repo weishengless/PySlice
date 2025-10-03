@@ -108,6 +108,7 @@ class MultisliceCalculator:
         save_path: Optional[Path] = None,
         cleanup_temp_files: bool = False,
         slice_axis: int = 2,
+        store_all_slices: bool = False,
     ):
         """
         Set up multislice simulation using PyTorch acceleration.
@@ -123,8 +124,9 @@ class MultisliceCalculator:
             batch_size: Number of frames to process at once
             save_path: Optional path to save wave function data
             cleanup_temp_files: Whether to delete temp files after loading
+            store_all_slices: If True, store wavefunction at each slice for 3D visualization
         """
-        
+
         self.trajectory = trajectory
         self.aperture = aperture
         self.voltage_eV = voltage_eV
@@ -135,6 +137,7 @@ class MultisliceCalculator:
         self.save_path = save_path
         self.cleanup_temp_files = cleanup_temp_files
         self.slice_axis = slice_axis
+        self.store_all_slices = store_all_slices
 
         # Generate cache key and setup output directory
         cache_key = self._generate_cache_key(trajectory, aperture, voltage_eV,
@@ -158,9 +161,10 @@ class MultisliceCalculator:
         # Initialize storage for results
         self.n_frames = trajectory.n_frames
         self.n_probes = len(self.probe_positions)
-        
+
         # Storage: [probe, frame, x, y, layer] - matches WFData expected format
-        self.wavefunction_data = xp.zeros((self.n_probes, self.n_frames, nx, ny, 1), dtype=complex_dtype)
+        n_layers = nz if store_all_slices else 1
+        self.wavefunction_data = xp.zeros((self.n_probes, self.n_frames, nx, ny, n_layers), dtype=complex_dtype)
         
     def run(self) -> WFData:
 
@@ -180,9 +184,9 @@ class MultisliceCalculator:
                 positions = self.trajectory.positions[frame_idx]
                 atom_types = self.trajectory.atom_types
                 
-                args = [ frame_idx, positions, atom_types, self.xs, self.ys, self.zs, 
-                       self.aperture, self.voltage_eV, self.base_probe, self.probe_positions, self.element_map, 
-                       cache_file, self.slice_axis ]
+                args = [ frame_idx, positions, atom_types, self.xs, self.ys, self.zs,
+                       self.aperture, self.voltage_eV, self.base_probe, self.probe_positions, self.element_map,
+                       cache_file, self.slice_axis, self.store_all_slices ]
                 
                 # Process frame
                 if frame_idx == 0 and self.n_frames == 1:
@@ -192,7 +196,11 @@ class MultisliceCalculator:
                 
                 # Store result
                 for probe_idx in range(self.n_probes):
-                    self.wavefunction_data[probe_idx, frame_idx, :, :, 0] = frame_data[probe_idx, :, :, 0, 0]
+                    if self.store_all_slices:
+                        # frame_data shape: (n_probes, nx, ny, n_slices, 1)
+                        self.wavefunction_data[probe_idx, frame_idx, :, :, :] = frame_data[probe_idx, :, :, :, 0]
+                    else:
+                        self.wavefunction_data[probe_idx, frame_idx, :, :, 0] = frame_data[probe_idx, :, :, 0, 0]
                 
                 if was_cached:
                     frames_cached += 1
@@ -227,7 +235,7 @@ class MultisliceCalculator:
         kxs = xp.fft.fftshift(xp.fft.fftfreq(self.nx, self.sampling))  # k-space in 1/Å
         kys = xp.fft.fftshift(xp.fft.fftfreq(self.ny, self.sampling))  # k-space in 1/Å
         time_array = np.arange(self.n_frames) * self.trajectory.timestep  # Time array in ps
-        layer_array = np.array([0])  # Single layer for now
+        layer_array = np.arange(self.nz) if self.store_all_slices else np.array([0])  # Layer indices
         
         # Package results
         wf_data = WFData(
@@ -265,7 +273,7 @@ class MultisliceCalculator:
 
 
 def _process_frame_worker_torch(args):
-    frame_idx, positions, atom_types, xs, ys, zs, aperture, eV, probe, probe_positions, element_map, cache_file, slice_axis = args
+    frame_idx, positions, atom_types, xs, ys, zs, aperture, eV, probe, probe_positions, element_map, cache_file, slice_axis, store_all_slices = args
     
     if cache_file.exists():
         return frame_idx, xp.asarray(np.load(cache_file)), True # if always saving as numpy, then must cast to torch array if re-reading cache file back in
@@ -287,18 +295,36 @@ def _process_frame_worker_torch(args):
 
     n_probes = len(probe_positions)
     nx, ny = len(xs), len(ys)
-    frame_data = xp.zeros((n_probes, nx, ny, 1, 1), dtype=complex_dtype)
-    
+    n_slices = len(zs)
+
     batched_probes = create_batched_probes(probe, probe_positions, worker_device)
-    exit_waves_batch = Propagate(batched_probes, potential, worker_device, progress=(frame_idx==-1))
-        
-    # Convert all exit waves to k-space
-    kwarg = {"dim":(-2,-1)} if TORCH_AVAILABLE else {"axes":(-2,-1)}
-    exit_waves_k = xp.fft.fft2(exit_waves_batch, **kwarg)
-    diffraction_patterns = xp.fft.fftshift(exit_waves_k, **kwarg)
-        
-     # Store results
-    frame_data[:, :, :, 0, 0] = diffraction_patterns #.cpu().numpy()
+    exit_waves_batch = Propagate(batched_probes, potential, worker_device, progress=(frame_idx==-1), store_all_slices=store_all_slices)
+
+    if store_all_slices:
+        # exit_waves_batch shape: (n_probes, nx, ny, n_slices)
+        frame_data = xp.zeros((n_probes, nx, ny, n_slices, 1), dtype=complex_dtype)
+
+        # Convert all slices to k-space
+        for slice_idx in range(n_slices):
+            slice_waves = exit_waves_batch[:, :, :, slice_idx]  # (n_probes, nx, ny)
+            kwarg = {"dim":(-2,-1)} if TORCH_AVAILABLE else {"axes":(-2,-1)}
+            waves_k = xp.fft.fft2(slice_waves, **kwarg)
+            diffraction_patterns = xp.fft.fftshift(waves_k, **kwarg)
+
+            # Store in frame_data
+            for i in range(n_probes):
+                frame_data[i, :, :, slice_idx, 0] = diffraction_patterns[i, :, :]
+    else:
+        # exit_waves_batch shape: (n_probes, nx, ny)
+        frame_data = xp.zeros((n_probes, nx, ny, 1, 1), dtype=complex_dtype)
+
+        # Convert all exit waves to k-space
+        kwarg = {"dim":(-2,-1)} if TORCH_AVAILABLE else {"axes":(-2,-1)}
+        exit_waves_k = xp.fft.fft2(exit_waves_batch, **kwarg)
+        diffraction_patterns = xp.fft.fftshift(exit_waves_k, **kwarg)
+
+        # Store results
+        frame_data[:, :, :, 0, 0] = diffraction_patterns #.cpu().numpy()
     #else:
     #    # Fallback to individual processing
     #    for probe_idx, (px, py) in enumerate(probe_positions):
