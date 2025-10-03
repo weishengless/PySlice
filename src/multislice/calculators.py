@@ -66,7 +66,6 @@ class MultisliceCalculator:
                 else:
                     self.device = torch.device('cpu')
 
-            print(f"[CALCULATOR __init__] device={self.device}, force_cpu={self.force_cpu}")
             logger.info(f"PyTorch calculator initialized on device: {self.device}")
         
         # Element mapping for display purposes
@@ -304,10 +303,8 @@ def _process_frame_worker_torch(args):
     if TORCH_AVAILABLE:
         if device is not None:
             worker_device = device
-            print(f"[WORKER] Using PASSED device: {worker_device}")
         else:
             worker_device = torch.device('cuda' if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else 'cpu'))
-            print(f"[WORKER] Using AUTO-DETECTED device: {worker_device}")
 
         # Set dtype based on worker device
         if worker_device.type == 'mps':

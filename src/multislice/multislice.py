@@ -73,8 +73,6 @@ class Probe:
             self.device = device
             self.use_torch = True
 
-            print(f"[PROBE __init__] Creating on device: {self.device}")
-
             # Use float32 for MPS compatibility (same as Potential class)
             self.dtype = torch.float32 if device.type == 'mps' else torch.float64
             self.complex_dtype = torch.complex64 if device.type == 'mps' else torch.complex128
