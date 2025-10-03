@@ -114,7 +114,7 @@ for size in supercell_sizes:
     # PySlice
     print("  PySlice...")
 
-    # Create potential
+    # Prepare data outside timer
     positions = trajectory.positions[0]
     atom_types = trajectory.atom_types
     atom_type_names = [29] * len(atom_types)  # Cu atomic number
@@ -125,27 +125,26 @@ for size in supercell_sizes:
     xs = np.arange(0, box_x, dx)
     ys = np.arange(0, box_y, dy)
     zs = np.arange(0, trajectory.box_matrix[2,2], dz)
-
-    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
-
-    # Create probe
-    probe = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
-
-    # Create single probe at center
     probe_pos = [(box_x/2, box_y/2)]
-    batched_probe = create_batched_probes(probe, probe_pos, device=device)
 
-    # Warmup run
-    _ = Propagate(batched_probe, potential, device=device, progress=False, onthefly=False)
+    # Warmup run (build everything to compile kernels)
+    potential_warmup = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
+    probe_warmup = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
+    batched_probe_warmup = create_batched_probes(probe_warmup, probe_pos, device=device)
+    _ = Propagate(batched_probe_warmup, potential_warmup, device=device, progress=False, onthefly=False)
     if device == 'cuda':
         torch.cuda.synchronize()
+    del potential_warmup, probe_warmup, batched_probe_warmup
 
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
 
-    # Timed run
+    # Timed run - build everything inside timer
     start = time.perf_counter()
+    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
+    probe = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
+    batched_probe = create_batched_probes(probe, probe_pos, device=device)
     exit_wave = Propagate(batched_probe, potential, device=device, progress=False, onthefly=False)
     if device == 'cuda':
         torch.cuda.synchronize()
@@ -218,7 +217,7 @@ for n_probes in probe_counts:
     if device == 'cuda':
         torch.cuda.empty_cache()
 
-    # Create potential (same for all probes)
+    # Prepare data outside timer
     positions = trajectory.positions[0]
     atom_types = trajectory.atom_types
     atom_type_names = [29] * len(atom_types)  # Cu atomic number
@@ -229,27 +228,26 @@ for n_probes in probe_counts:
     xs = np.arange(0, box_x, dx)
     ys = np.arange(0, box_y, dy)
     zs = np.arange(0, trajectory.box_matrix[2,2], dz)
-
-    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
-
-    # Create probe
-    probe = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
-
-    # Create batched probes
     probe_pos = probe_positions(box_x, box_y, n_probes)
-    batched_probe = create_batched_probes(probe, probe_pos, device=device)
 
-    # Warmup run
-    _ = Propagate(batched_probe, potential, device=device, progress=False, onthefly=False)
+    # Warmup run (build everything to compile kernels)
+    potential_warmup = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
+    probe_warmup = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
+    batched_probe_warmup = create_batched_probes(probe_warmup, probe_pos, device=device)
+    _ = Propagate(batched_probe_warmup, potential_warmup, device=device, progress=False, onthefly=False)
     if device == 'cuda':
         torch.cuda.synchronize()
+    del potential_warmup, probe_warmup, batched_probe_warmup
 
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
 
-    # Timed run
+    # Timed run - build everything inside timer
     start = time.perf_counter()
+    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
+    probe = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
+    batched_probe = create_batched_probes(probe, probe_pos, device=device)
     exit_waves = Propagate(batched_probe, potential, device=device, progress=False, onthefly=False)
     if device == 'cuda':
         torch.cuda.synchronize()
