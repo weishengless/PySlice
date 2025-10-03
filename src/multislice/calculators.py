@@ -41,16 +41,18 @@ class MultisliceCalculator:
     def __init__(self, device=None, force_cpu=False):
         """
         Initialize the PyTorch-accelerated calculator.
-        
+
         Args:
-            device: PyTorch device ('cpu', 'cuda', or None for auto-detection)
+            device: PyTorch device ('cpu', 'cuda', 'mps', or None for auto-detection)
             force_cpu: Force CPU usage even if GPU is available
         """
         if not TORCH_AVAILABLE:
             if device is not None:
                 logger.warning("PyTorch not available, falling back to NumPy implementation")
             self.device = None
+            self.force_cpu = False
         else:
+            self.force_cpu = force_cpu
             if force_cpu:
                 self.device = torch.device('cpu')
             elif device is not None:
@@ -63,7 +65,8 @@ class MultisliceCalculator:
                     self.device = torch.device('mps')
                 else:
                     self.device = torch.device('cpu')
-            
+
+            print(f"[CALCULATOR __init__] device={self.device}, force_cpu={self.force_cpu}")
             logger.info(f"PyTorch calculator initialized on device: {self.device}")
         
         # Element mapping for display purposes
@@ -156,15 +159,34 @@ class MultisliceCalculator:
         # Set up default probe position if not provided
         if self.probe_positions is None:
             self.probe_positions = [(lx/2, ly/2)]  # Center probe
-        self.base_probe = Probe(xs, ys, self.aperture, self.voltage_eV)
+
+        # Create probe on the correct device from the start
+        self.base_probe = Probe(xs, ys, self.aperture, self.voltage_eV, device=self.device)
 
         # Initialize storage for results
         self.n_frames = trajectory.n_frames
         self.n_probes = len(self.probe_positions)
 
+        # Set dtype based on the actual device we're using
+        if TORCH_AVAILABLE and self.device is not None:
+            if self.device.type == 'mps':
+                self.complex_dtype = torch.complex64
+                self.float_dtype = torch.float32
+            else:
+                self.complex_dtype = torch.complex128
+                self.float_dtype = torch.float64
+        else:
+            self.complex_dtype = np.complex128
+            self.float_dtype = np.float64
+
         # Storage: [probe, frame, x, y, layer] - matches WFData expected format
         n_layers = nz if store_all_slices else 1
-        self.wavefunction_data = xp.zeros((self.n_probes, self.n_frames, nx, ny, n_layers), dtype=complex_dtype)
+        if TORCH_AVAILABLE and self.device is not None:
+            self.wavefunction_data = torch.zeros((self.n_probes, self.n_frames, nx, ny, n_layers),
+                                                   dtype=self.complex_dtype, device=self.device)
+        else:
+            self.wavefunction_data = np.zeros((self.n_probes, self.n_frames, nx, ny, n_layers),
+                                               dtype=self.complex_dtype)
         
     def run(self) -> WFData:
 
@@ -186,7 +208,7 @@ class MultisliceCalculator:
                 
                 args = [ frame_idx, positions, atom_types, self.xs, self.ys, self.zs,
                        self.aperture, self.voltage_eV, self.base_probe, self.probe_positions, self.element_map,
-                       cache_file, self.slice_axis, self.store_all_slices ]
+                       cache_file, self.slice_axis, self.store_all_slices, self.device ]
                 
                 # Process frame
                 if frame_idx == 0 and self.n_frames == 1:
@@ -273,16 +295,32 @@ class MultisliceCalculator:
 
 
 def _process_frame_worker_torch(args):
-    frame_idx, positions, atom_types, xs, ys, zs, aperture, eV, probe, probe_positions, element_map, cache_file, slice_axis, store_all_slices = args
-    
+    frame_idx, positions, atom_types, xs, ys, zs, aperture, eV, probe, probe_positions, element_map, cache_file, slice_axis, store_all_slices, device = args
+
     if cache_file.exists():
         return frame_idx, xp.asarray(np.load(cache_file)), True # if always saving as numpy, then must cast to torch array if re-reading cache file back in
-    
+
+    # Use the device passed from the calculator, or auto-detect if None
     if TORCH_AVAILABLE:
-        worker_device = torch.device('cuda' if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else 'cpu'))
+        if device is not None:
+            worker_device = device
+            print(f"[WORKER] Using PASSED device: {worker_device}")
+        else:
+            worker_device = torch.device('cuda' if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else 'cpu'))
+            print(f"[WORKER] Using AUTO-DETECTED device: {worker_device}")
+
+        # Set dtype based on worker device
+        if worker_device.type == 'mps':
+            worker_complex_dtype = torch.complex64
+            worker_float_dtype = torch.float32
+        else:
+            worker_complex_dtype = torch.complex128
+            worker_float_dtype = torch.float64
     else:
         worker_device = None
-    
+        worker_complex_dtype = np.complex128
+        worker_float_dtype = np.float64
+
     atom_type_names = []
     for atom_type in atom_types:
         if atom_type in element_map:
@@ -302,7 +340,10 @@ def _process_frame_worker_torch(args):
 
     if store_all_slices:
         # exit_waves_batch shape: (n_slices, n_probes, nx, ny)
-        frame_data = xp.zeros((n_probes, nx, ny, n_slices, 1), dtype=complex_dtype)
+        if TORCH_AVAILABLE and worker_device is not None:
+            frame_data = torch.zeros((n_probes, nx, ny, n_slices, 1), dtype=worker_complex_dtype, device=worker_device)
+        else:
+            frame_data = np.zeros((n_probes, nx, ny, n_slices, 1), dtype=worker_complex_dtype)
 
         # Convert all slices to k-space
         for slice_idx in range(n_slices):
@@ -316,7 +357,10 @@ def _process_frame_worker_torch(args):
                 frame_data[i, :, :, slice_idx, 0] = diffraction_patterns[i, :, :]
     else:
         # exit_waves_batch shape: (n_probes, nx, ny)
-        frame_data = xp.zeros((n_probes, nx, ny, 1, 1), dtype=complex_dtype)
+        if TORCH_AVAILABLE and worker_device is not None:
+            frame_data = torch.zeros((n_probes, nx, ny, 1, 1), dtype=worker_complex_dtype, device=worker_device)
+        else:
+            frame_data = np.zeros((n_probes, nx, ny, 1, 1), dtype=worker_complex_dtype)
 
         # Convert all exit waves to k-space
         kwarg = {"dim":(-2,-1)} if TORCH_AVAILABLE else {"axes":(-2,-1)}
