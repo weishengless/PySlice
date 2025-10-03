@@ -164,24 +164,29 @@ for size in supercell_sizes:
 
     # Warmup run
     atoms_copy = atoms.copy()
-    potential = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
-    probe = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
-    probe.grid.match(potential)
-    _ = probe.build().multislice(potential).compute()
-    del potential, probe
+    potential_warmup = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
+    probe_warmup = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
+    probe_warmup.grid.match(potential_warmup)
+    _ = probe_warmup.build().multislice(potential_warmup).compute()
+    if device == 'cuda':
+        torch.cuda.synchronize()
+    del potential_warmup, probe_warmup
 
-    # Clear and recreate for timed run
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
 
+    # Timed run - build everything inside timer
+    start = time.perf_counter()
     atoms_copy = atoms.copy()
     potential = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
     probe = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
     probe.grid.match(potential)
-
-    start = time.perf_counter()
-    result = probe.build().multislice(potential).compute()
+    wave = probe.build()
+    exit_wave = wave.multislice(potential)
+    result = exit_wave.compute()
+    if device == 'cuda':
+        torch.cuda.synchronize()
     end = time.perf_counter()
 
     abtem_time = end - start
@@ -268,12 +273,12 @@ for n_probes in probe_counts:
 
     # Warmup run
     atoms_copy = atoms.copy()
-    potential = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
-    probe = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
-    probe.grid.match(potential)
+    potential_warmup = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
+    probe_warmup = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
+    probe_warmup.grid.match(potential_warmup)
 
     if n_probes == 1:
-        _ = probe.build().multislice(potential).compute()
+        _ = probe_warmup.build().multislice(potential_warmup).compute()
     else:
         positions = probe_positions(box_x, box_y, n_probes)
         scan_pos = [(x/box_x, y/box_y) for x,y in positions]
@@ -284,26 +289,27 @@ for n_probes in probe_counts:
         if start_xy[1] == end_xy[1]: end_xy[1] += 0.01
         scan = abtem.GridScan(start=start_xy, end=end_xy, gpts=[n_side, n_side])
         detector = abtem.FlexibleAnnularDetector()
-        _ = probe.scan(potential, scan=scan, detectors=detector, max_batch=n_probes).compute()
+        _ = probe_warmup.scan(potential_warmup, scan=scan, detectors=detector, max_batch=n_probes).compute()
 
     if device == 'cuda':
         torch.cuda.synchronize()
-    del potential, probe
+    del potential_warmup, probe_warmup
 
-    # Clear and recreate for timed run
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
 
-    atoms_copy = atoms.copy()
-    potential = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
-    probe = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
-    probe.grid.match(potential)
-
+    # Timed run - build everything inside timer
     if n_probes == 1:
         # Single probe - direct multislice
         start = time.perf_counter()
-        result = probe.build().multislice(potential).compute()
+        atoms_copy = atoms.copy()
+        potential = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
+        probe = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
+        probe.grid.match(potential)
+        wave = probe.build()
+        exit_wave = wave.multislice(potential)
+        result = exit_wave.compute()
         if device == 'cuda':
             torch.cuda.synchronize()
         end = time.perf_counter()
@@ -322,6 +328,10 @@ for n_probes in probe_counts:
         detector = abtem.FlexibleAnnularDetector()
 
         start = time.perf_counter()
+        atoms_copy = atoms.copy()
+        potential = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
+        probe = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
+        probe.grid.match(potential)
         result = probe.scan(potential, scan=scan, detectors=detector, max_batch=n_probes).compute()
         if device == 'cuda':
             torch.cuda.synchronize()
