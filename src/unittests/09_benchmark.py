@@ -124,9 +124,11 @@ for size in supercell_sizes:
     if device == 'cuda':
         torch.cuda.synchronize()
 
-    # Clear cache after warmup
-    if os.path.exists("psi_data"):
-        shutil.rmtree("psi_data")
+    # Clear cache files after warmup (keep directory structure)
+    cache_dir = calculator.output_dir
+    if cache_dir.exists():
+        for cache_file in cache_dir.glob("*.npy"):
+            cache_file.unlink()
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
@@ -235,9 +237,11 @@ for n_probes in probe_counts:
     if device == 'cuda':
         torch.cuda.synchronize()
 
-    # Clear cache after warmup
-    if os.path.exists("psi_data"):
-        shutil.rmtree("psi_data")
+    # Clear cache files after warmup (keep directory structure)
+    cache_dir = calculator.output_dir
+    if cache_dir.exists():
+        for cache_file in cache_dir.glob("*.npy"):
+            cache_file.unlink()
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
