@@ -13,6 +13,10 @@ try:
     import torch
     import abtem
 
+    # Disable Dask caching globally BEFORE any AbTem operations
+    import dask
+    dask.config.set(scheduler='synchronous')
+
     # Detect available devices
     has_cuda = torch.cuda.is_available()
     has_mps = torch.backends.mps.is_available()
@@ -148,13 +152,6 @@ for size in supercell_sizes:
     if device == 'cuda':
         torch.cuda.empty_cache()
 
-    # Disable Dask caching by using synchronous scheduler
-    try:
-        import dask
-        dask.config.set(scheduler='synchronous')
-    except:
-        pass
-
     abtem.config.set({"device": abtem_device})
 
     # Warmup run
@@ -256,13 +253,6 @@ for n_probes in probe_counts:
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
-
-    # Disable Dask caching by using synchronous scheduler
-    try:
-        import dask
-        dask.config.set(scheduler='synchronous')
-    except:
-        pass
 
     abtem.config.set({"device": abtem_device})
 
