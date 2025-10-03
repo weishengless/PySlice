@@ -389,7 +389,13 @@ def _process_frame_worker_torch(args):
     #     
     #       frame_data[probe_idx, :, :, 0, 0] = diffraction_pattern.cpu().numpy()
     
-    np.save(cache_file, frame_data)
+    # Convert to CPU numpy array for saving
+    if TORCH_AVAILABLE and hasattr(frame_data, 'cpu'):
+        frame_data_cpu = frame_data.cpu().numpy()
+    else:
+        frame_data_cpu = frame_data
+
+    np.save(cache_file, frame_data_cpu)
     return frame_idx, frame_data, False
         
     #except Exception as e:
