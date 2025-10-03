@@ -3,6 +3,14 @@ Single benchmark test - runs ONE system size or probe count test.
 Called by wrapper script to avoid Dask caching between tests.
 """
 import sys,os
+import warnings
+warnings.filterwarnings('ignore')  # Suppress warnings
+
+# Redirect stderr to suppress progress bars
+import io
+stderr_backup = sys.stderr
+sys.stderr = io.StringIO()
+
 sys.path.insert(1,"../../")
 from src.multislice.potentials import Potential
 from src.multislice.multislice import Probe, Propagate, create_batched_probes
@@ -128,13 +136,14 @@ if __name__ == "__main__":
         end = time.perf_counter()
         abtem_time = end - start
 
-        # Output JSON
+        # Restore stderr and output JSON only
+        sys.stderr = stderr_backup
         print(json.dumps({
             'size': size,
             'n_atoms': len(atoms),
             'pyslice_time': pyslice_time,
             'abtem_time': abtem_time
-        }))
+        }), flush=True)
 
     elif test_type == 'probe':
         # Multi-probe test
@@ -210,9 +219,10 @@ if __name__ == "__main__":
 
         abtem_time = end - start
 
-        # Output JSON
+        # Restore stderr and output JSON only
+        sys.stderr = stderr_backup
         print(json.dumps({
             'n_probes': n_probes,
             'pyslice_time': pyslice_time,
             'abtem_time': abtem_time
-        }))
+        }), flush=True)
