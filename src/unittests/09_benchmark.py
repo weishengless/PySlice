@@ -1,6 +1,7 @@
 import sys,os
 sys.path.insert(1,"../../")
-from src.multislice.calculators import MultisliceCalculator
+from src.multislice.potentials import Potential
+from src.multislice.multislice import Probe, Propagate, create_batched_probes
 from src.multislice.trajectory import Trajectory
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,11 +12,13 @@ import gc,shutil
 # Check for device availability
 try:
     import torch
-    import abtem
 
     # Disable Dask caching globally BEFORE any AbTem operations
     import dask
     dask.config.set(scheduler='synchronous')
+    dask.config.set({'array.cache': None})  # Disable array caching
+
+    import abtem
 
     # Detect available devices
     has_cuda = torch.cuda.is_available()
@@ -104,47 +107,53 @@ for size in supercell_sizes:
     print(f"  {n_atoms} atoms, {box_x:.1f} Å box")
 
     # Clear cache
-    if os.path.exists("psi_data"):
-        shutil.rmtree("psi_data")
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
 
     # PySlice
     print("  PySlice...")
-    calculator = MultisliceCalculator(device=device, force_cpu=force_cpu)
-    calculator.setup(
-        trajectory=trajectory,
-        aperture=30.0,
-        voltage_eV=200e3,
-        defocus=0.0,
-        slice_thickness=0.5,
-        sampling=0.1,
-        probe_positions=probe_positions(box_x, box_y, 1)
-    )
+
+    # Create potential
+    positions = trajectory.positions[0]
+    atom_types = trajectory.atom_types
+    atom_type_names = [29] * len(atom_types)  # Cu atomic number
+
+    # Calculate grid from box size
+    dx = dy = 0.1  # sampling
+    dz = 0.5  # slice_thickness
+    xs = np.arange(0, box_x, dx)
+    ys = np.arange(0, box_y, dy)
+    zs = np.arange(0, trajectory.box_matrix[2,2], dz)
+
+    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
+
+    # Create probe
+    probe = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
+
+    # Create single probe at center
+    probe_pos = [(box_x/2, box_y/2)]
+    batched_probe = create_batched_probes(probe, probe_pos, device=device)
 
     # Warmup run
-    _ = calculator.run()
+    _ = Propagate(batched_probe, potential, device=device, progress=False, onthefly=False)
     if device == 'cuda':
         torch.cuda.synchronize()
 
-    # Clear cache files after warmup (keep directory structure)
-    cache_dir = calculator.output_dir
-    if cache_dir.exists():
-        for cache_file in cache_dir.glob("*.npy"):
-            cache_file.unlink()
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
 
     # Timed run
     start = time.perf_counter()
-    exitwaves = calculator.run()
+    exit_wave = Propagate(batched_probe, potential, device=device, progress=False, onthefly=False)
+    if device == 'cuda':
+        torch.cuda.synchronize()
     end = time.perf_counter()
 
     pyslice_time = end - start
     print(f"    Time: {pyslice_time:.3f}s")
-    del calculator
+    del potential, probe, batched_probe, exit_wave
 
     # AbTem
     print("  AbTem...")
@@ -205,40 +214,43 @@ for n_probes in probe_counts:
 
     # ===== PySlice Test =====
     print(f"  PySlice {device.upper()}...")
-    if os.path.exists("psi_data"):
-        shutil.rmtree("psi_data")
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
 
-    calculator = MultisliceCalculator(device=device, force_cpu=force_cpu)
-    calculator.setup(
-        trajectory=trajectory,
-        aperture=30.0,
-        voltage_eV=200e3,
-        defocus=0.0,
-        slice_thickness=0.5,
-        sampling=0.1,
-        probe_positions=probe_positions(box_x, box_y, n_probes)
-    )
+    # Create potential (same for all probes)
+    positions = trajectory.positions[0]
+    atom_types = trajectory.atom_types
+    atom_type_names = [29] * len(atom_types)  # Cu atomic number
+
+    # Calculate grid from box size
+    dx = dy = 0.1  # sampling
+    dz = 0.5  # slice_thickness
+    xs = np.arange(0, box_x, dx)
+    ys = np.arange(0, box_y, dy)
+    zs = np.arange(0, trajectory.box_matrix[2,2], dz)
+
+    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
+
+    # Create probe
+    probe = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
+
+    # Create batched probes
+    probe_pos = probe_positions(box_x, box_y, n_probes)
+    batched_probe = create_batched_probes(probe, probe_pos, device=device)
 
     # Warmup run
-    _ = calculator.run()
+    _ = Propagate(batched_probe, potential, device=device, progress=False, onthefly=False)
     if device == 'cuda':
         torch.cuda.synchronize()
 
-    # Clear cache files after warmup (keep directory structure)
-    cache_dir = calculator.output_dir
-    if cache_dir.exists():
-        for cache_file in cache_dir.glob("*.npy"):
-            cache_file.unlink()
     gc.collect()
     if device == 'cuda':
         torch.cuda.empty_cache()
 
     # Timed run
     start = time.perf_counter()
-    exitwaves = calculator.run()
+    exit_waves = Propagate(batched_probe, potential, device=device, progress=False, onthefly=False)
     if device == 'cuda':
         torch.cuda.synchronize()
     end = time.perf_counter()
@@ -246,7 +258,7 @@ for n_probes in probe_counts:
     pyslice_time = end - start
     print(f"    Time: {pyslice_time:.3f}s ({pyslice_time/n_probes:.4f}s/probe)")
 
-    del calculator
+    del potential, probe, batched_probe, exit_waves
 
     # ===== AbTem Test =====
     print(f"  AbTem {device.upper()}...")
