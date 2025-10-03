@@ -136,14 +136,9 @@ if __name__ == "__main__":
         end = time.perf_counter()
         abtem_time = end - start
 
-        # Restore stderr and output JSON only
-        sys.stderr = stderr_backup
-        print(json.dumps({
-            'size': size,
-            'n_atoms': len(atoms),
-            'pyslice_time': pyslice_time,
-            'abtem_time': abtem_time
-        }), flush=True)
+        # Write results to file
+        with open(f'result_system_{size}.txt', 'w') as f:
+            f.write(f"{size},{len(atoms)},{pyslice_time},{abtem_time}\n")
 
     elif test_type == 'probe':
         # Multi-probe test
@@ -219,10 +214,6 @@ if __name__ == "__main__":
 
         abtem_time = end - start
 
-        # Restore stderr and output JSON only
-        sys.stderr = stderr_backup
-        print(json.dumps({
-            'n_probes': n_probes,
-            'pyslice_time': pyslice_time,
-            'abtem_time': abtem_time
-        }), flush=True)
+        # Write results to file
+        with open(f'result_probe_{n_probes}.txt', 'w') as f:
+            f.write(f"{n_probes},{pyslice_time},{abtem_time}\n")

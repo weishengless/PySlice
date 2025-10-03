@@ -28,20 +28,29 @@ for size in supercell_sizes:
         text=True
     )
 
-    # Parse JSON output
-    data = json.loads(result.stdout.strip())
+    if result.returncode != 0:
+        print(f"ERROR: {result.stderr}")
+        continue
 
-    print(f"  {data['n_atoms']} atoms")
-    print(f"  PySlice: {data['pyslice_time']:.3f}s")
-    print(f"  AbTem: {data['abtem_time']:.3f}s")
+    # Read results from file
+    with open(f'result_system_{size}.txt', 'r') as f:
+        line = f.read().strip()
+        size_val, n_atoms, pyslice_time, abtem_time = line.split(',')
+        n_atoms = int(n_atoms)
+        pyslice_time = float(pyslice_time)
+        abtem_time = float(abtem_time)
 
-    speedup = data['abtem_time'] / data['pyslice_time']
+    print(f"  {n_atoms} atoms")
+    print(f"  PySlice: {pyslice_time:.3f}s")
+    print(f"  AbTem: {abtem_time:.3f}s")
+
+    speedup = abtem_time / pyslice_time
     print(f"  Speedup: {speedup:.2f}×")
 
-    system_results['sizes'].append(data['size'])
-    system_results['n_atoms'].append(data['n_atoms'])
-    system_results['pyslice'].append(data['pyslice_time'])
-    system_results['abtem'].append(data['abtem_time'])
+    system_results['sizes'].append(int(size_val))
+    system_results['n_atoms'].append(n_atoms)
+    system_results['pyslice'].append(pyslice_time)
+    system_results['abtem'].append(abtem_time)
     system_results['speedups'].append(speedup)
 
 print("\n" + "="*50)
@@ -59,18 +68,27 @@ for n_probes in probe_counts:
         text=True
     )
 
-    # Parse JSON output
-    data = json.loads(result.stdout.strip())
+    if result.returncode != 0:
+        print(f"ERROR: {result.stderr}")
+        continue
 
-    print(f"  PySlice: {data['pyslice_time']:.3f}s ({data['pyslice_time']/n_probes:.4f}s/probe)")
-    print(f"  AbTem: {data['abtem_time']:.3f}s ({data['abtem_time']/n_probes:.4f}s/probe)")
+    # Read results from file
+    with open(f'result_probe_{n_probes}.txt', 'r') as f:
+        line = f.read().strip()
+        n_probes_val, pyslice_time, abtem_time = line.split(',')
+        n_probes_val = int(n_probes_val)
+        pyslice_time = float(pyslice_time)
+        abtem_time = float(abtem_time)
 
-    speedup = data['abtem_time'] / data['pyslice_time']
+    print(f"  PySlice: {pyslice_time:.3f}s ({pyslice_time/n_probes:.4f}s/probe)")
+    print(f"  AbTem: {abtem_time:.3f}s ({abtem_time/n_probes:.4f}s/probe)")
+
+    speedup = abtem_time / pyslice_time
     print(f"  Speedup: {speedup:.2f}×")
 
-    probe_results['counts'].append(data['n_probes'])
-    probe_results['pyslice'].append(data['pyslice_time'])
-    probe_results['abtem'].append(data['abtem_time'])
+    probe_results['counts'].append(n_probes_val)
+    probe_results['pyslice'].append(pyslice_time)
+    probe_results['abtem'].append(abtem_time)
     probe_results['speedups'].append(speedup)
 
 # Plot results
