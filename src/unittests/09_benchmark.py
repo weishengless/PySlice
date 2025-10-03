@@ -97,6 +97,41 @@ print("SYSTEM SIZE SCALING (single probe)")
 print(f"PySlice vs AbTem on {device.upper()}")
 print("="*50)
 
+# Warmup run to compile kernels (use different size than tests to avoid caching)
+print("\nWarming up GPU kernels...")
+warmup_traj, warmup_atoms = create_trajectory(6)  # Different from test sizes to avoid Dask caching
+warmup_box_x = warmup_atoms.cell[0,0]
+warmup_positions = warmup_traj.positions[0]
+warmup_atom_types = [29] * len(warmup_atoms)
+warmup_xs = np.arange(0, warmup_box_x, 0.1)
+warmup_ys = np.arange(0, warmup_box_x, 0.1)
+warmup_zs = np.arange(0, warmup_traj.box_matrix[2,2], 0.5)
+warmup_pot = Potential(warmup_xs, warmup_ys, warmup_zs, warmup_positions, warmup_atom_types, kind="kirkland", device=device)
+warmup_probe = Probe(warmup_xs, warmup_ys, mrad=30.0, eV=200e3, device=device)
+warmup_batched = create_batched_probes(warmup_probe, [(warmup_box_x/2, warmup_box_x/2)], device=device)
+_ = Propagate(warmup_batched, warmup_pot, device=device, progress=False, onthefly=False)
+if device == 'cuda':
+    torch.cuda.synchronize()
+del warmup_pot, warmup_probe, warmup_batched, warmup_traj, warmup_atoms
+gc.collect()
+if device == 'cuda':
+    torch.cuda.empty_cache()
+
+# AbTem warmup (different size to avoid Dask caching)
+warmup_atoms2 = bulk('Cu', 'fcc', a=3.615, cubic=True) * (6, 6, 6)
+abtem.config.set({"device": abtem_device})
+warmup_pot2 = abtem.Potential(warmup_atoms2, sampling=0.1, slice_thickness=0.5)
+warmup_probe2 = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
+warmup_probe2.grid.match(warmup_pot2)
+_ = warmup_probe2.build().multislice(warmup_pot2).compute()
+if device == 'cuda':
+    torch.cuda.synchronize()
+del warmup_pot2, warmup_probe2, warmup_atoms2
+gc.collect()
+if device == 'cuda':
+    torch.cuda.empty_cache()
+print("Warmup complete!\n")
+
 for size in supercell_sizes:
     print(f"\n--- Testing {size}³ supercell ---")
 
@@ -127,19 +162,6 @@ for size in supercell_sizes:
     zs = np.arange(0, trajectory.box_matrix[2,2], dz)
     probe_pos = [(box_x/2, box_y/2)]
 
-    # Warmup run (build everything to compile kernels)
-    potential_warmup = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
-    probe_warmup = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
-    batched_probe_warmup = create_batched_probes(probe_warmup, probe_pos, device=device)
-    _ = Propagate(batched_probe_warmup, potential_warmup, device=device, progress=False, onthefly=False)
-    if device == 'cuda':
-        torch.cuda.synchronize()
-    del potential_warmup, probe_warmup, batched_probe_warmup
-
-    gc.collect()
-    if device == 'cuda':
-        torch.cuda.empty_cache()
-
     # Timed run - build everything inside timer
     start = time.perf_counter()
     potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
@@ -161,20 +183,6 @@ for size in supercell_sizes:
         torch.cuda.empty_cache()
 
     abtem.config.set({"device": abtem_device})
-
-    # Warmup run
-    atoms_copy = atoms.copy()
-    potential_warmup = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
-    probe_warmup = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
-    probe_warmup.grid.match(potential_warmup)
-    _ = probe_warmup.build().multislice(potential_warmup).compute()
-    if device == 'cuda':
-        torch.cuda.synchronize()
-    del potential_warmup, probe_warmup
-
-    gc.collect()
-    if device == 'cuda':
-        torch.cuda.empty_cache()
 
     # Timed run - build everything inside timer
     start = time.perf_counter()
@@ -235,19 +243,6 @@ for n_probes in probe_counts:
     zs = np.arange(0, trajectory.box_matrix[2,2], dz)
     probe_pos = probe_positions(box_x, box_y, n_probes)
 
-    # Warmup run (build everything to compile kernels)
-    potential_warmup = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
-    probe_warmup = Probe(xs, ys, mrad=30.0, eV=200e3, device=device)
-    batched_probe_warmup = create_batched_probes(probe_warmup, probe_pos, device=device)
-    _ = Propagate(batched_probe_warmup, potential_warmup, device=device, progress=False, onthefly=False)
-    if device == 'cuda':
-        torch.cuda.synchronize()
-    del potential_warmup, probe_warmup, batched_probe_warmup
-
-    gc.collect()
-    if device == 'cuda':
-        torch.cuda.empty_cache()
-
     # Timed run - build everything inside timer
     start = time.perf_counter()
     potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=device)
@@ -270,34 +265,6 @@ for n_probes in probe_counts:
         torch.cuda.empty_cache()
 
     abtem.config.set({"device": abtem_device})
-
-    # Warmup run
-    atoms_copy = atoms.copy()
-    potential_warmup = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
-    probe_warmup = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
-    probe_warmup.grid.match(potential_warmup)
-
-    if n_probes == 1:
-        _ = probe_warmup.build().multislice(potential_warmup).compute()
-    else:
-        positions = probe_positions(box_x, box_y, n_probes)
-        scan_pos = [(x/box_x, y/box_y) for x,y in positions]
-        n_side = int(np.ceil(np.sqrt(n_probes)))
-        start_xy = [min(p[0] for p in scan_pos), min(p[1] for p in scan_pos)]
-        end_xy = [max(p[0] for p in scan_pos), max(p[1] for p in scan_pos)]
-        if start_xy[0] == end_xy[0]: end_xy[0] += 0.01
-        if start_xy[1] == end_xy[1]: end_xy[1] += 0.01
-        scan = abtem.GridScan(start=start_xy, end=end_xy, gpts=[n_side, n_side])
-        detector = abtem.FlexibleAnnularDetector()
-        _ = probe_warmup.scan(potential_warmup, scan=scan, detectors=detector, max_batch=n_probes).compute()
-
-    if device == 'cuda':
-        torch.cuda.synchronize()
-    del potential_warmup, probe_warmup
-
-    gc.collect()
-    if device == 'cuda':
-        torch.cuda.empty_cache()
 
     # Timed run - build everything inside timer
     if n_probes == 1:
