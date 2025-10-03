@@ -65,6 +65,10 @@ exitwaves.plot_reciprocalspace()
 
 ary=exitwaves.array
 
+# Convert to numpy if it's a torch tensor
+if hasattr(ary, 'cpu'):
+	ary = ary.cpu().numpy()
+
 print(ary.shape)
 if not os.path.exists("lacbed-test.npy"):
 	np.save("lacbed-test.npy",ary[::3,::3])

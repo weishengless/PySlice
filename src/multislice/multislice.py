@@ -271,11 +271,7 @@ def create_batched_probes(base_probe, probe_positions, device=None):
 
     return Probe(base_probe.xs, base_probe.ys, base_probe.mrad, base_probe.eV, array=array, device=base_probe.device)
 
-<<<<<<< HEAD
-def Propagate(probe, potential, device=None, progress=False, onthefly=True):
-=======
-def Propagate(probe, potential, device=None, progress=False, store_all_slices=False):
->>>>>>> 4319b94 (initial changes to support multiple layer output)
+def Propagate(probe, potential, device=None, progress=False, onthefly=True, store_all_slices=False):
     """
     PyTorch-accelerated multislice propagation function.
     Supports both single probe and batched multi-probe processing.
@@ -285,11 +281,12 @@ def Propagate(probe, potential, device=None, progress=False, store_all_slices=Fa
         potential: Potential object (can be NumPy or PyTorch version)
         device: PyTorch device (None for auto-detection)
         progress: Show progress bar
+        onthefly: If True, calculate potential slices on the fly. If False, build full array
         store_all_slices: If True, return wavefunction at each slice instead of just exit wave
 
     Returns:
         torch.Tensor: Exit wavefunction(s) after multislice propagation
-                     If store_all_slices=True, shape is (n_probes, nx, ny, n_slices)
+                     If store_all_slices=True, shape is (n_slices, n_probes, nx, ny)
                      Otherwise, shape is (n_probes, nx, ny) or (nx, ny) for single probe
     """
     if device is not None and not TORCH_AVAILABLE:
@@ -326,20 +323,11 @@ def Propagate(probe, potential, device=None, progress=False, store_all_slices=Fa
         def localtqdm(iterator):
             return iterator
 
-<<<<<<< HEAD
     if not onthefly:
         potential.build()
-=======
-    # Storage for all slices if requested
-    if store_all_slices:
-        n_probes = array.shape[0]
-        nx, ny = array.shape[1], array.shape[2]
-        n_slices = len(potential.zs)
-        if TORCH_AVAILABLE:
-            all_slices = xp.zeros((n_probes, nx, ny, n_slices), dtype=complex_dtype, device=device)
-        else:
-            all_slices = xp.zeros((n_probes, nx, ny, n_slices), dtype=complex_dtype)
->>>>>>> 4319b94 (initial changes to support multiple layer output)
+
+    # More elegant approach: use list to accumulate slices if needed
+    slice_wavefunctions = [] if store_all_slices else None
 
     # Vectorized multislice propagation through each slice
     for z in localtqdm(range(len(potential.zs))):
@@ -355,9 +343,13 @@ def Propagate(probe, potential, device=None, progress=False, store_all_slices=Fa
         # Broadcasting: t[nx,ny] * array[n_probes,nx,ny] = array[n_probes,nx,ny]
         array = t[None, :, :] * array
 
-        # Store wavefunction at this slice if requested
+        # Store wavefunction at this slice if requested (after transmission)
         if store_all_slices:
-            all_slices[:, :, :, z] = array
+            # Clone/copy to avoid reference issues
+            if TORCH_AVAILABLE:
+                slice_wavefunctions.append(array.clone())
+            else:
+                slice_wavefunctions.append(array.copy())
 
         # Fresnel propagation to next slice (except for last slice)
         if z < len(potential.zs) - 1:
@@ -367,9 +359,14 @@ def Propagate(probe, potential, device=None, progress=False, store_all_slices=Fa
             propagated_fft = P[None, :, :] * fft_array
             array = xp.fft.ifft2(propagated_fft, **kwarg)
 
-    # Return all slices or just exit wave
+    # Return results based on what was requested
     if store_all_slices:
-        return all_slices
+        # Stack the list into a tensor with slices as a new dimension
+        # Shape will be (n_slices, n_probes, nx, ny) - more conventional ordering
+        if TORCH_AVAILABLE:
+            return torch.stack(slice_wavefunctions, dim=0)
+        else:
+            return xp.stack(slice_wavefunctions, axis=0)
 
     # Return single probe result if input was single, otherwise return batch
     if array.shape[0] == 1:

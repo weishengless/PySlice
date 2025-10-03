@@ -301,12 +301,12 @@ def _process_frame_worker_torch(args):
     exit_waves_batch = Propagate(batched_probes, potential, worker_device, progress=(frame_idx==-1), store_all_slices=store_all_slices)
 
     if store_all_slices:
-        # exit_waves_batch shape: (n_probes, nx, ny, n_slices)
+        # exit_waves_batch shape: (n_slices, n_probes, nx, ny)
         frame_data = xp.zeros((n_probes, nx, ny, n_slices, 1), dtype=complex_dtype)
 
         # Convert all slices to k-space
         for slice_idx in range(n_slices):
-            slice_waves = exit_waves_batch[:, :, :, slice_idx]  # (n_probes, nx, ny)
+            slice_waves = exit_waves_batch[slice_idx, :, :, :]  # (n_probes, nx, ny)
             kwarg = {"dim":(-2,-1)} if TORCH_AVAILABLE else {"axes":(-2,-1)}
             waves_k = xp.fft.fft2(slice_waves, **kwarg)
             diffraction_patterns = xp.fft.fftshift(waves_k, **kwarg)
