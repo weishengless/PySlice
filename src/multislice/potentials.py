@@ -222,12 +222,12 @@ class Potential:
             self.ys = ys 
             self.zs = zs
 
-        nx = len(xs)
-        ny = len(ys)
-        nz = len(zs)
-        dx = xs[1] - xs[0]
-        dy = ys[1] - ys[0] 
-        dz = zs[1] - zs[0] if nz > 1 else 0.5
+        self.nx = len(xs)
+        self.ny = len(ys)
+        self.nz = len(zs)
+        self.dx = xs[1] - xs[0]
+        self.dy = ys[1] - ys[0] 
+        self.dz = zs[1] - zs[0] if self.nz > 1 else 0.5
         
         # Store slice axis for later use
         self.slice_axis = slice_axis
@@ -239,7 +239,7 @@ class Potential:
         
         # Store coordinate arrays and spacing for the slice axis
         coord_arrays = [xs, ys, zs]
-        spacings = [dx, dy, dz]
+        spacings = [self.dx, self.dy, self.dz]
         self.slice_coords = coord_arrays[slice_axis]
         self.slice_spacing = spacings[slice_axis]
         self.n_slices = len(self.slice_coords)
@@ -248,14 +248,10 @@ class Potential:
         device_kwargs = {'device': self.device, 'dtype': self.dtype} if self.use_torch else {}
         
         # Set up k-space frequencies using xp with conditional device
-        self.kxs = xp.fft.fftfreq(nx, d=dx, **device_kwargs)
-        self.kys = xp.fft.fftfreq(ny, d=dy, **device_kwargs)
+        self.kxs = xp.fft.fftfreq(self.nx, d=self.dx, **device_kwargs)
+        self.kys = xp.fft.fftfreq(self.ny, d=self.dy, **device_kwargs)
         qsq = self.kxs[:, None]**2 + self.kys[None, :]**2
-        
-        # Initialize potential array using xp with conditional device
-        device_kwargs = {'device': self.device } if self.use_torch else {}
-        reciprocal = xp.zeros((nx, ny, self.n_slices), dtype=self.complex_dtype, **device_kwargs)
-        
+                
         # Convert atom types to atomic numbers if needed
         unique_atom_types = set(atomTypes)
         atomic_numbers = []
@@ -279,33 +275,32 @@ class Potential:
             elif kind == "gauss":
                 form_factors[at] = torch.exp(-1**2 * qsq / 2)
         
-        # Process each atom type separately (reuse form factors)
-        for at in unique_atom_types:
-            form_factor = form_factors[at]
+        def calculateSlice(slice_idx):
+
+            # Initialize slice of potential array using xp with conditional device
+            device_kwargs = {'device': self.device } if self.use_torch else {}
+            reciprocal = xp.zeros((self.nx, self.ny), dtype=self.complex_dtype, **device_kwargs)
+
+            # Process each atom type separately (reuse form factors)
+            for at in unique_atom_types:
+                form_factor = form_factors[at]
             
-            # OPTIMIZATION 2: Vectorized atom type masking on GPU
-            if isinstance(at, str):
-                type_mask=[atom_type == at for atom_type in atomTypes]
-                if TORCH_AVAILABLE:
-                    type_mask = torch.tensor(type_mask, 
+                # OPTIMIZATION 2: Vectorized atom type masking on GPU
+                if isinstance(at, str):
+                    type_mask=[atom_type == at for atom_type in atomTypes]
+                    if TORCH_AVAILABLE:
+                        type_mask = torch.tensor(type_mask, 
                                        dtype=torch.bool, device=device)
-            else:
-                type_mask = (atomic_numbers == at)
+                else:
+                    type_mask = (atomic_numbers == at)
             
-            # OPTIMIZATION 3: Batch process all slices for this atom type along the specified axis
-            # Create slice masks for all slices at once
-            slice_coords = positions[type_mask, slice_axis]  # Get coordinates along slice axis for this atom type
+                # OPTIMIZATION 3: Batch process all slices for this atom type along the specified axis
+                # Create slice masks for all slices at once
+                slice_coords = positions[type_mask, slice_axis]  # Get coordinates along slice axis for this atom type
             
-            if len(slice_coords) == 0:
-                continue
-                
-            if progress:
-                localtqdm = tqdm
-                print("generating potential for slices")
-            else:
-                def localtqdm(iterator):
-                    return iterator
-            for slice_idx in localtqdm(range(self.n_slices)):
+                if len(slice_coords) == 0:
+                    continue
+            
                 # Vectorized spatial masking using correct slice coordinates
                 slice_min = self.slice_coords[slice_idx] - self.slice_spacing/2 if slice_idx > 0 else 0
                 slice_max = self.slice_coords[slice_idx] + self.slice_spacing/2 if slice_idx < self.n_slices-1 else self.slice_coords[-1] + self.slice_spacing
@@ -313,14 +308,14 @@ class Potential:
                 spatial_mask = (slice_coords >= slice_min) & (slice_coords < slice_max)
                 
                 if not xp.any(spatial_mask):
-                   continue  # Skip empty slices
+                    continue #return xp.zeros((len(self.kxs),len(self.kys)))
                 
                 # Get positions for atoms in this slice and type
                 type_positions = positions[type_mask]
                 slice_positions = type_positions[spatial_mask]
                 
                 if len(slice_positions) == 0:
-                    continue
+                    continue #return xp.zeros((len(self.kxs),len(self.kys)))
                 
                 atomsx = slice_positions[:, self.inplane_axis1]
                 atomsy = slice_positions[:, self.inplane_axis2]
@@ -333,23 +328,37 @@ class Potential:
                 kwarg={True:{},False:{"optimize":True}}[TORCH_AVAILABLE]
                 shape_factor = xp.einsum('ax,ay->xy', expx, expy, **kwarg)
                 
-                reciprocal[:, :, slice_idx] += shape_factor * form_factor
-        
-        # Slice-by-slice IFFT to match NumPy implementation exactly
-        device_kwargs = {'device': device} if self.use_torch else {}
-        potential_real = xp.zeros((nx, ny, self.n_slices), dtype=float_dtype, **device_kwargs)
+                reciprocal += shape_factor * form_factor
+
+            real = xp.fft.ifft2(reciprocal)
+            real = xp.real(real)
+            # Apply proper normalization factor (dx²×dy²) to match reference implementation
+            dx = self.xs[1] - self.xs[0]
+            dy = self.ys[1] - self.ys[0] 
+            return real / (dx**2 * dy**2)
+
+
+
+        self.calculateSlice = calculateSlice
+        self.array = None
+       
+    def build(self,progress=False):
+
+        # Initialize potential array using xp with conditional device
+        device_kwargs = {'device': self.device } if self.use_torch else {}
+        potential_real = xp.zeros((self.nx, self.ny, self.n_slices), dtype=float_dtype, **device_kwargs)
+
+        if progress:
+            localtqdm = tqdm
+            print("generating potential for slices")
+        else:
+            def localtqdm(iterator):
+                return iterator
+
+        # cycle through layers generating reciprocal slice
         for slice_idx in localtqdm(range(self.n_slices)):
-            potential_slice = xp.fft.ifft2(reciprocal[:, :, slice_idx])
-            potential_real[:, :, slice_idx] = xp.real(potential_slice)
-        
-        # Apply proper normalization factor (dx²×dy²) to match reference implementation
-        dx = self.xs[1] - self.xs[0]
-        dy = self.ys[1] - self.ys[0] 
-        potential_real = potential_real / (dx**2 * dy**2)
-        
-        #if TORCH_AVAILABLE:
-        #   self.array = potential_real.cpu().numpy()  # Move to CPU and convert to NumPy
-        
+            potential_real[:, :, slice_idx] += self.calculateSlice(slice_idx)
+         
         # Store tensor version for potential GPU operations
         self.array = potential_real
         
@@ -368,6 +377,9 @@ class Potential:
         return self
 
     def plot(self,filename=""):
+        if self.array is None:
+            self.build()
+
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         array = xp.sum(xp.absolute(self.array),axis=2).T # imshow convention: y,x. our convention: x,y
