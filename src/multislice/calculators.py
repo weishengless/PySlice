@@ -333,7 +333,7 @@ def _process_frame_worker_torch(args):
     n_slices = len(zs)
 
     batched_probes = create_batched_probes(probe, probe_positions, worker_device)
-    exit_waves_batch = Propagate(batched_probes, potential, worker_device, progress=(frame_idx==-1), store_all_slices=store_all_slices)
+    exit_waves_batch = Propagate(batched_probes, potential, worker_device, progress=(frame_idx==-1), onthefly=False, store_all_slices=store_all_slices)
 
     if store_all_slices:
         # exit_waves_batch shape: (n_slices, n_probes, nx, ny)
