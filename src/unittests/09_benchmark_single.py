@@ -123,8 +123,8 @@ if __name__ == "__main__":
 
         abtem.config.set({"device": abtem_device})
 
-        start = time.perf_counter()
         atoms_copy = atoms.copy()
+        start = time.perf_counter()
         potential = abtem.Potential(atoms_copy, sampling=0.1, slice_thickness=0.5)
         probe = abtem.Probe(energy=200e3, semiangle_cutoff=30.0, defocus=0.0)
         probe.grid.match(potential)
