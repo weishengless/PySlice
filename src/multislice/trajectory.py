@@ -155,8 +155,6 @@ class Trajectory:
             timestep=self.timestep
         )
 
-
-
     def slice_positions(self,
                        x_range: Optional[Tuple[float, float]] = None,
                        y_range: Optional[Tuple[float, float]] = None,
@@ -259,8 +257,10 @@ class Trajectory:
             timestep=self.timestep
         )
 
-    def generate_random_displacements(self,n_displacements,sigma):
+    def generate_random_displacements(self,n_displacements,sigma,seed=None):
         na=len(self.positions[0])
+        if seed is not None:
+            np.random.seed(seed)
         dxyz=np.random.random(size=(n_displacements,na,3))*sigma
         positions = self.positions[0]+dxyz
 
