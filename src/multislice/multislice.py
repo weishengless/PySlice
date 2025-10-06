@@ -72,7 +72,7 @@ class Probe:
                 device = torch.device(device)
             self.device = device
             self.use_torch = True
-            
+
             # Use float32 for MPS compatibility (same as Potential class)
             self.dtype = torch.float32 if device.type == 'mps' else torch.float64
             self.complex_dtype = torch.complex64 if device.type == 'mps' else torch.complex128
@@ -271,18 +271,23 @@ def create_batched_probes(base_probe, probe_positions, device=None):
 
     return Probe(base_probe.xs, base_probe.ys, base_probe.mrad, base_probe.eV, array=array, device=base_probe.device)
 
-def Propagate(probe, potential, device=None, progress=False, onthefly=True):
+def Propagate(probe, potential, device=None, progress=False, onthefly=True, store_all_slices=False):
     """
     PyTorch-accelerated multislice propagation function.
     Supports both single probe and batched multi-probe processing.
-    
+
     Args:
         probe: ProbeTorch object or tensor with shape (n_probes, nx, ny)
         potential: Potential object (can be NumPy or PyTorch version)
         device: PyTorch device (None for auto-detection)
-        
+        progress: Show progress bar
+        onthefly: If True, calculate potential slices on the fly. If False, build full array
+        store_all_slices: If True, return wavefunction at each slice instead of just exit wave
+
     Returns:
         torch.Tensor: Exit wavefunction(s) after multislice propagation
+                     If store_all_slices=True, shape is (n_slices, n_probes, nx, ny)
+                     Otherwise, shape is (n_probes, nx, ny) or (nx, ny) for single probe
     """
     if device is not None and not TORCH_AVAILABLE:
         raise ImportError("PyTorch not available. Please install PyTorch.")
@@ -304,13 +309,13 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True):
     
     # Initialize wavefunction with probe(s) - shape: (n_probes, nx, ny)
     array = probe.array #.clone()
-    
+
     # Pre-compute propagation operator in k-space (Fresnel propagation)
     # All tensors should already be on the correct device from creation
     kx_grid, ky_grid = xp.meshgrid(potential.kxs, potential.kys, indexing='ij')
     k_squared = kx_grid**2 + ky_grid**2
     P = xp.exp(-1j * xp.pi * probe.wavelength * dz * k_squared)
-    
+
     if progress:
         localtqdm = tqdm
         print("propagating through slices")
@@ -321,6 +326,9 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True):
     if not onthefly:
         potential.build()
 
+    # More elegant approach: use list to accumulate slices if needed
+    slice_wavefunctions = [] if store_all_slices else None
+
     # Vectorized multislice propagation through each slice
     for z in localtqdm(range(len(potential.zs))):
         # Transmission function: t = exp(iσV(x,y,z))
@@ -330,11 +338,19 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True):
         else:
             potential_slice = potential.array[:, :, z]
         t = xp.exp(1j * sigma * potential_slice)
-        
+
         # Apply transmission to all probes: ψ' = t × ψ
         # Broadcasting: t[nx,ny] * array[n_probes,nx,ny] = array[n_probes,nx,ny]
         array = t[None, :, :] * array
-        
+
+        # Store wavefunction at this slice if requested (after transmission)
+        if store_all_slices:
+            # Clone/copy to avoid reference issues
+            if TORCH_AVAILABLE:
+                slice_wavefunctions.append(array.clone())
+            else:
+                slice_wavefunctions.append(array.copy())
+
         # Fresnel propagation to next slice (except for last slice)
         if z < len(potential.zs) - 1:
             # Vectorized FFT over spatial dimensions for all probes
@@ -342,7 +358,16 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True):
             fft_array = xp.fft.fft2(array, **kwarg)
             propagated_fft = P[None, :, :] * fft_array
             array = xp.fft.ifft2(propagated_fft, **kwarg)
-    
+
+    # Return results based on what was requested
+    if store_all_slices:
+        # Stack the list into a tensor with slices as a new dimension
+        # Shape will be (n_slices, n_probes, nx, ny) - more conventional ordering
+        if TORCH_AVAILABLE:
+            return torch.stack(slice_wavefunctions, dim=0)
+        else:
+            return xp.stack(slice_wavefunctions, axis=0)
+
     # Return single probe result if input was single, otherwise return batch
     if array.shape[0] == 1:
         return array.squeeze(0)
