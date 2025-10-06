@@ -124,6 +124,39 @@ class Trajectory:
 
         return range_val
 
+    def swap_axes(self,axes):
+        positions_swapped = self.positions[:,:,axes]
+        velocities_swapped = self.velocities[:,:,axes]
+        box_swapped = self.box_matrix[axes,:][:,axes]
+        return Trajectory(
+            atom_types=self.atom_types,
+            positions=positions_swapped,
+            velocities=velocities_swapped,
+            box_matrix=box_swapped,
+            timestep=self.timestep
+        )
+
+    def tilt_positions(self,alpha=0,beta=0) -> 'Trajectory':
+        ca=np.cos(alpha) ; sa=np.sin(alpha)
+        cb=np.cos(beta) ; sb=np.sin(beta)
+        Ra=np.asarray([[1,0,0],[0,ca,-sa],[0,sa,ca]])
+        Rb=np.asarray([[cb,0,-sb],[0,1,0],[sb,0,cb]])
+        nt,na,nxyz = np.shape(self.positions)
+        pos = np.reshape(self.positions,(nt*na,3)).T
+        vel = np.reshape(self.velocities,(nt*na,3)).T
+        positions_tilted = np.reshape( ( Rb @ Ra @ pos ).T , (nt,na,3) )
+        velocities_tilted = np.reshape( ( Rb @ Ra @ vel ).T , (nt,na,3) )
+        
+        return Trajectory(
+            atom_types=self.atom_types,
+            positions=positions_tilted,
+            velocities=velocities_tilted,
+            box_matrix=self.box_matrix,
+            timestep=self.timestep
+        )
+
+
+
     def slice_positions(self,
                        x_range: Optional[Tuple[float, float]] = None,
                        y_range: Optional[Tuple[float, float]] = None,
