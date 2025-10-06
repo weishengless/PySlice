@@ -52,12 +52,12 @@ class WFData:
     array: np.ndarray  # Complex reciprocal-space wavefunction array (probe_positions, time, kx, ky, layer)
     probe: Probe
 
-    def plot(self,whichProbe=0,whichTimestep=0):
+    def plot(self,whichProbe=0,whichTimestep=0,powerscaling=0.25):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         array = self.array[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
         extent = ( xp.amin(self.kxs) , xp.amax(self.kxs) , xp.amin(self.kys) , xp.amax(self.kys) )
-        ax.imshow( xp.absolute(array)**.25, cmap="inferno", extent=extent )
+        ax.imshow( xp.absolute(array)**powerscaling, cmap="inferno", extent=extent )
         plt.show()
 
     def plot_reciprocalspace(self,whichProbe=0,whichTimestep=0):
