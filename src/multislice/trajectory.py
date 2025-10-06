@@ -238,3 +238,16 @@ class Trajectory:
             box_matrix=self.box_matrix,
             timestep=self.timestep
         )
+
+    def plot(self,timestep=0):
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        ax = fig.add_subplot(projection = '3d')
+        for at,c in zip(set(self.atom_types),['b','g','r','k','c','o']):
+            mask=np.zeros(len(self.positions[0]))
+            mask[self.atom_types==at]=1
+            xs=self.positions[timestep,mask==1,0]
+            ys=self.positions[timestep,mask==1,1]
+            zs=self.positions[timestep,mask==1,2]
+            ax.scatter(xs,ys,zs,c=c,s=3)
+        plt.show()
