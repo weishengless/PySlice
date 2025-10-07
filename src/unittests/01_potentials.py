@@ -1,6 +1,6 @@
 import sys,os
 sys.path.insert(1,"../../")
-from src.io.loader import TrajectoryLoader
+from src.io.loader import Loader
 from src.multislice.potentials import gridFromTrajectory,Potential
 import numpy as np
 #from ..src.tacaw.ms_calculator_npy import gridFromTrajectory
@@ -13,7 +13,7 @@ dt=.005
 types={1:"B",2:"N"}
 
 # LOAD MD OUTPUT
-trajectory=TrajectoryLoader(dump,timestep=dt,atom_mapping=types).load()
+trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 
 # TEST GENERATION OF THE POTENTIAL
 positions = trajectory.positions[0]

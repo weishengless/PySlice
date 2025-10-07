@@ -1,6 +1,6 @@
 import sys,os,glob
 sys.path.insert(1,"../../")
-from src.io.loader import TrajectoryLoader
+from src.io.loader import Loader
 from src.multislice.potentials import gridFromTrajectory,Potential
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,7 +26,7 @@ testFiles={"silicon.positions":{"atom_style":"molecular"},	# lammps input positi
 # for each: load, generate potential, plot potential
 for i,filename in enumerate(testFiles.keys()):
 	print("attempting to load",filename)
-	trajectory=TrajectoryLoader(filename,ovitokwargs=testFiles[filename]).load()
+	trajectory=Loader(filename,ovitokwargs=testFiles[filename]).load()
 	#trajectory = trajectory.generate_random_displacements(n_displacements=10,sigma=1)
 	#print(len(trajectory.positions))
 	positions = trajectory.positions[0]
@@ -34,3 +34,53 @@ for i,filename in enumerate(testFiles.keys()):
 	xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
 	potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 	potential.plot(str(i)+".png")
+
+# Test loading from ASE Atoms object (single frame)
+print("\nTesting ASE Atoms object loading (single frame)")
+from ase import Atoms
+from ase.build import bulk
+atoms = bulk('Si', 'diamond', a=5.43) * (3, 3, 3)
+trajectory_from_atoms = Loader(atoms=atoms).load()
+print(f"✓ Loaded from ASE Atoms: {trajectory_from_atoms.n_frames} frames, {trajectory_from_atoms.n_atoms} atoms")
+print(f"✓ ASE Atoms single frame loading test PASSED")
+
+# Test loading from ASE Atoms trajectory (multiple frames)
+print("\nTesting ASE Atoms trajectory loading (multiple frames)")
+from ase.io.trajectory import Trajectory as ASETrajectory
+import tempfile
+import os
+
+# Create a temporary trajectory file with multiple frames
+with tempfile.NamedTemporaryFile(suffix='.traj', delete=False) as tmp:
+    tmp_path = tmp.name
+
+try:
+    # Create trajectory with 10 frames with slightly perturbed positions
+    traj_writer = ASETrajectory(tmp_path, 'w')
+    base_atoms = bulk('Si', 'diamond', a=5.43) * (2, 2, 2)
+
+    for i in range(10):
+        atoms_frame = base_atoms.copy()
+        # Add small random displacement to simulate dynamics
+        positions = atoms_frame.get_positions()
+        positions += np.random.normal(0, 0.05, positions.shape)
+        atoms_frame.set_positions(positions)
+        traj_writer.write(atoms_frame)
+
+    traj_writer.close()
+
+    # Read the trajectory back
+    traj_reader = ASETrajectory(tmp_path, 'r')
+
+    # Load all frames into a single Trajectory object
+    trajectory_multi = Loader(atoms=traj_reader).load()
+
+    print(f"✓ Loaded from ASE trajectory: {trajectory_multi.n_frames} frames, {trajectory_multi.n_atoms} atoms")
+    assert trajectory_multi.n_frames == 10
+    assert trajectory_multi.n_atoms == 16
+    print(f"✓ ASE Atoms multi-frame loading test PASSED")
+
+finally:
+    # Clean up temporary file
+    if os.path.exists(tmp_path):
+        os.remove(tmp_path)

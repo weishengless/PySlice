@@ -48,7 +48,8 @@ class HAADFData(WFData):
         #print(np.shape(self.wavefunction_data),np.shape(q))
         radius_inner = (inner_mrad * 1e-3) / self.probe.wavelength
         radius_outer = (outer_mrad * 1e-3) / self.probe.wavelength
-        mask=xp.zeros(q.shape) ; mask[q>=radius_inner]=1 ; mask[q>=radius_outer]=0
+        mask=xp.zeros(q.shape, device=self.array.device if TORCH_AVAILABLE else None)
+        mask[q>=radius_inner]=1 ; mask[q>=radius_outer]=0
         probe_positions=xp.asarray(self.probe_positions)
         for i,x in enumerate(self.xs):
             for j,y in enumerate(self.ys):
@@ -58,7 +59,10 @@ class HAADFData(WFData):
                 if preview and i==0 and j==0:
                     import matplotlib.pyplot as plt
                     fig, ax = plt.subplots()
-                    ax.imshow(xp.mean(xp.absolute(exits),axis=0)**.1*(1-mask), cmap="inferno")
+                    preview_data = xp.mean(xp.absolute(exits),axis=0)**.1*(1-mask)
+                    if TORCH_AVAILABLE:
+                        preview_data = preview_data.cpu().numpy()
+                    ax.imshow(preview_data, cmap="inferno")
                     plt.show()
                 #print(np.shape(exits),p,np.sum(np.absolute(exits)))
                 collected = xp.mean(xp.sum( xp.absolute(exits*mask[None,:,:]),axis=(1,2)))

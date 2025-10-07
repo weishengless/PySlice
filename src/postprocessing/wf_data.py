@@ -56,8 +56,29 @@ class WFData:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         array = self.array[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
-        extent = ( xp.amin(self.kxs) , xp.amax(self.kxs) , xp.amin(self.kys) , xp.amax(self.kys) )
-        ax.imshow( xp.absolute(array)**powerscaling, cmap="inferno", extent=extent )
+        # Convert extent values to scalar values
+        kxs_min = xp.amin(self.kxs)
+        kxs_max = xp.amax(self.kxs)
+        kys_min = xp.amin(self.kys)
+        kys_max = xp.amax(self.kys)
+        if hasattr(kxs_min, 'cpu'):
+            kxs_min = kxs_min.cpu().item()
+            kxs_max = kxs_max.cpu().item()
+            kys_min = kys_min.cpu().item()
+            kys_max = kys_max.cpu().item()
+        elif hasattr(kxs_min, 'item'):
+            kxs_min = kxs_min.item()
+            kxs_max = kxs_max.item()
+            kys_min = kys_min.item()
+            kys_max = kys_max.item()
+        extent = ( kxs_min , kxs_max , kys_min , kys_max )
+        # Convert to numpy array if it's a tensor
+        img_data = xp.absolute(array)**powerscaling
+        if hasattr(img_data, 'cpu'):
+            img_data = img_data.cpu().numpy()
+        elif hasattr(img_data, '__array__'):
+            img_data = np.asarray(img_data)
+        ax.imshow( img_data, cmap="inferno", extent=extent )
         if len(filename)>3:
             plt.savefig(filename)
         else:
@@ -79,19 +100,21 @@ class WFData:
         kx_grid, ky_grid = xp.meshgrid(self.kxs, self.kys, indexing='ij')
         k_squared = kx_grid**2 + ky_grid**2
         P = xp.exp(-1j * xp.pi * self.probe.wavelength * dz * k_squared)
+        if TORCH_AVAILABLE and isinstance(self.array, torch.Tensor):
+            P = P.to(self.array.device)
         #if dz>0:
         self.array = P[None,None,:,:,None] * self.array
 
     def applyMask(self,radius,realOrReciprocal="reciprocal"):
         if realOrReciprocal == "reciprocal":
             radii = xp.sqrt( self.kxs[:,None]**2 + self.kys[None,:]**2 )
-            mask = np.zeros(radii.shape)
+            mask = xp.zeros(radii.shape, device=self.array.device if TORCH_AVAILABLE else None)
             mask[radii<radius]=1
             self.array*=mask[None,None,:,:,None]
         else:
             radii = np.sqrt( ( self.xs[:,None] - np.mean(self.xs) )**2 +\
                 ( self.ys[None,:] - np.mean(self.ys) )**2 )
-            mask = xp.zeros(radii.shape)
+            mask = xp.zeros(radii.shape, device=self.array.device if TORCH_AVAILABLE else None)
             mask[radii<radius]=1
             kwarg = {"dim":(2,3)} if TORCH_AVAILABLE else {"axes":(2,3)}
             real = xp.fft.ifft2(xp.fft.ifftshift(self.array,**kwarg),**kwarg)

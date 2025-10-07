@@ -21,32 +21,39 @@ except ImportError as e:
 
 logger = logging.getLogger(__name__)
 
-class TrajectoryLoader:
+class Loader:
     def __init__(self,
-                 filename: str,
+                 filename: Optional[str] = None,
                  timestep: Optional[float] = None,
                  atom_mapping: Optional[Dict[int, Union[int, str]]] = None,
                  # Keep old parameters for backward compatibility but deprecated
                  atomic_numbers: Optional[Dict[int, int]] = None,
                  element_names: Optional[Dict[int, str]] = None,
-                 ovitokwargs: Optional[Dict[str,str]] = None ):
+                 ovitokwargs: Optional[Dict[str,str]] = None,
+                 atoms = None ):
         """
-        Initialize trajectory loader for various trajectory file formats.
+        Initialize loader for various structure/trajectory file formats or ASE Atoms objects.
 
         Args:
-            filename: Path to trajectory/structure file
+            filename: Path to structure/trajectory file (optional if atoms is provided)
             timestep: Timestep in picoseconds. Defaults to 1.0 ps.
             atom_mapping: Dictionary mapping atom types to either:
                 - Atomic numbers (int): {1: 6, 2: 8} for carbon and oxygen
                 - Element names (str): {1: "C", 2: "O"} for carbon and oxygen
             atomic_numbers: (Deprecated) Use atom_mapping instead
             element_names: (Deprecated) Use atom_mapping instead
+            atoms: ASE Atoms object or trajectory (optional, if provided will use instead of loading from file)
         """
         if timestep is not None and timestep <= 0:
             raise ValueError("timestep must be positive if specified.")
 
-        self.filepath = Path(filename)
-        if not self.filepath.exists():
+        if filename is None and atoms is None:
+            raise ValueError("Either filename or atoms must be provided")
+
+        self.atoms = atoms
+        self.filepath = Path(filename) if filename is not None else None
+
+        if self.filepath is not None and not self.filepath.exists():
             raise FileNotFoundError(f"Trajectory file not found: {filename}")
 
         self.timestep = timestep if timestep is not None else 1.0
@@ -152,7 +159,12 @@ class TrajectoryLoader:
         np.save(cache_files['box_matrix'], trajectory.box_matrix)
 
     def load(self) -> Trajectory:
-        """Load trajectory from file."""
+        """Load structure/trajectory from file or ASE Atoms object and return as Trajectory."""
+        # If atoms object provided, convert directly
+        if self.atoms is not None:
+            logger.info("Converting ASE Atoms object to Trajectory")
+            return self.ase2Trajectory(self.atoms)
+
         # Try cache first
         trajectory = self._load_from_cache()
         if trajectory is not None:
@@ -276,14 +288,61 @@ class TrajectoryLoader:
         atoms = aseread(str(self.filepath))
         return self.ase2Trajectory(atoms)
 
-    def ase2Trajectory(self,atoms):
-        pos=np.asarray([atoms.get_positions()])
-        vel=np.asarray([atoms.get_velocities()])
+    def ase2Trajectory(self, atoms):
+        """Convert ASE Atoms or list of Atoms to Trajectory.
+
+        Args:
+            atoms: Either a single ASE Atoms object or a list/trajectory of Atoms objects
+        """
+        # Check if atoms is iterable (trajectory with multiple frames)
+        try:
+            # Try to iterate and check if it's a multi-frame trajectory
+            iter(atoms)
+            is_trajectory = True
+            # Special case: single Atoms object is technically iterable (over atoms)
+            # but we want to treat it as a single frame
+            if hasattr(atoms, 'get_positions'):
+                is_trajectory = False
+        except TypeError:
+            is_trajectory = False
+
+        if is_trajectory:
+            # Multiple frames
+            frames = list(atoms)
+            n_frames = len(frames)
+
+            # Get dimensions from first frame
+            first_frame = frames[0]
+            n_atoms = len(first_frame)
+
+            # Allocate arrays
+            positions = np.zeros((n_frames, n_atoms, 3), dtype=np.float32)
+            velocities = np.zeros((n_frames, n_atoms, 3), dtype=np.float32)
+
+            # Load each frame
+            for i, frame in enumerate(frames):
+                positions[i] = frame.get_positions()
+                if frame.get_velocities() is not None:
+                    velocities[i] = frame.get_velocities()
+
+            atom_types = np.asarray(first_frame.get_chemical_symbols())
+            box_matrix = np.array(first_frame.get_cell())
+        else:
+            # Single frame
+            positions = np.asarray([atoms.get_positions()])
+            velocities_data = atoms.get_velocities()
+            if velocities_data is not None:
+                velocities = np.asarray([velocities_data])
+            else:
+                velocities = np.zeros_like(positions)
+            atom_types = np.asarray(atoms.get_chemical_symbols())
+            box_matrix = np.array(atoms.get_cell())
+
         return Trajectory(
-            atom_types=np.asarray( atoms.get_chemical_symbols() ),
-            positions=pos,
-            velocities=vel,
-            box_matrix=atoms.get_cell(),
+            atom_types=atom_types,
+            positions=positions,
+            velocities=velocities,
+            box_matrix=box_matrix,
             timestep=self.timestep
         )
 

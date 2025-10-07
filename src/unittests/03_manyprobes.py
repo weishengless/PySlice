@@ -1,6 +1,6 @@
 import sys,os
 sys.path.insert(1,"../../")
-from src.io.loader import TrajectoryLoader
+from src.io.loader import Loader
 from src.multislice.multislice import Probe,Propagate,create_batched_probes
 from src.multislice.potentials import gridFromTrajectory,Potential
 import numpy as np
@@ -16,7 +16,7 @@ types={1:"B",2:"N"}
 a,b=2.4907733333333337,2.1570729817355123
 
 # LOAD MD OUTPUT
-trajectory=TrajectoryLoader(dump,timestep=dt,atom_mapping=types).load()
+trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 trajectory=trajectory.slice_positions([0,10*a],[0,10*b])
 xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
 
