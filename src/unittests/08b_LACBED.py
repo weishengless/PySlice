@@ -1,6 +1,6 @@
 import sys,os
 sys.path.insert(1,"../../")
-from src.io.loader import TrajectoryLoader
+from src.io.loader import Loader
 from src.multislice.multislice import probe_grid
 from src.multislice.calculators import MultisliceCalculator
 from src.postprocessing.haadf_data import HAADFData
@@ -15,7 +15,7 @@ dump="Si_truncated.lammpstrj" ; dt=.002 ; types={1:"Si"}
 
 
 # LOAD TRAJECTORY
-trajectory=TrajectoryLoader(dump,timestep=dt,atom_mapping=types).load()
+trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 # SELECT "RANDOM" TIMESTEPS (use seed for reproducibility)
 slice_timesteps = np.arange(trajectory.n_frames)
 np.random.seed(5) ; np.random.shuffle(slice_timesteps)

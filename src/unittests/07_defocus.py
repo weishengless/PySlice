@@ -1,6 +1,6 @@
 import sys,os
 sys.path.insert(1,"../../")
-from src.io.loader import TrajectoryLoader
+from src.io.loader import Loader
 from src.multislice.multislice import probe_grid,Probe,Propagate
 from src.multislice.potentials import gridFromTrajectory,Potential
 from src.multislice.calculators import MultisliceCalculator
@@ -17,7 +17,7 @@ types={1:"B",2:"N"}
 a,b=2.4907733333333337,2.1570729817355123
 
 # LOAD TRAJECTORY
-trajectory=TrajectoryLoader(dump,timestep=dt,atom_mapping=types).load()
+trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 trajectory=trajectory.slice_timesteps( [0] )
 
 # POTENTIAL

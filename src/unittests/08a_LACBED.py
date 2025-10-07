@@ -1,6 +1,6 @@
 import sys,os
 sys.path.insert(1,"../../")
-from src.io.loader import TrajectoryLoader
+from src.io.loader import Loader
 from src.multislice.multislice import probe_grid
 from src.multislice.calculators import MultisliceCalculator
 from src.postprocessing.haadf_data import HAADFData
@@ -15,7 +15,7 @@ dump="Si_truncated.lammpstrj" ; dt=.002 ; types={1:"Si"}
 
 
 # LOAD TRAJECTORY
-trajectory=TrajectoryLoader(dump,timestep=dt,atom_mapping=types).load()
+trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 # SELECT "RANDOM" TIMESTEPS (use seed for reproducibility)
 slice_timesteps = np.arange(trajectory.n_frames)
 np.random.seed(5) ; np.random.shuffle(slice_timesteps)
@@ -46,9 +46,12 @@ for i in range(10):
 		calculator.base_probe.defocus(-1000)
 	else:									
 		calculator.base_probe.array = last_slice_exit
-	# RUN THE SIMULATION					
+	# RUN THE SIMULATION
 	exitwaves = calculator.run()
-	last_slice_exit = np.fft.ifft2(np.fft.ifftshift(exitwaves.array[0,0,:,:,0]))
+	exit_data = exitwaves.array[0,0,:,:,0]
+	if hasattr(exit_data, 'cpu'):
+		exit_data = exit_data.cpu().numpy()
+	last_slice_exit = np.fft.ifft2(np.fft.ifftshift(exit_data))
 
 # REPROPAGATE TO PROBE FOCAL POINT		
 exitwaves.propagate_free_space(1000-10*calculator.lz)
