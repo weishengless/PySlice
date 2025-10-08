@@ -284,3 +284,33 @@ class Trajectory:
             zs=self.positions[timestep,mask==1,2]
             ax.scatter(xs,ys,zs,c=c,s=3)
         plt.show()
+
+
+    def wrap_positions(self) -> 'Trajectory':
+        """
+        Wrap all atomic positions to positive coordinates and create orthogonal box.
+
+        This creates an orthogonal box aligned with axes and wraps all positions
+        to be within [0, box_size) for each dimension.
+
+        Returns:
+            New Trajectory with wrapped positions and orthogonal box_matrix
+        """
+        # Get box dimensions from diagonal of box_matrix
+        box_dims = np.array([self.box_matrix[0, 0],
+                            self.box_matrix[1, 1],
+                            self.box_matrix[2, 2]])
+
+        # Create orthogonal box matrix
+        new_box_matrix = np.diag(box_dims)
+
+        # Wrap positions using modulo
+        wrapped_positions = self.positions % box_dims[None, None, :]
+
+        return Trajectory(
+            atom_types=self.atom_types,
+            positions=wrapped_positions,
+            velocities=self.velocities,
+            box_matrix=new_box_matrix,
+            timestep=self.timestep
+        )
