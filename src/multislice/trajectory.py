@@ -272,17 +272,79 @@ class Trajectory:
             timestep=self.timestep
         )
 
-    def plot(self,timestep=0):
+    def plot(self, timestep=0, view='3d', alpha=0.6, size=20):
+        """
+        Plot atomic positions.
+
+        Args:
+            timestep: Which frame to plot
+            view: '3d' for 3D scatter, 'xy', 'xz', or 'yz' for 2D projections
+            alpha: Transparency for overlapping atoms (0-1)
+            size: Marker size
+        """
         import matplotlib.pyplot as plt
-        fig = plt.figure()
-        ax = fig.add_subplot(projection = '3d')
-        for at,c in zip(set(self.atom_types),['b','g','r','k','c','o']):
-            mask=np.zeros(len(self.positions[0]))
-            mask[self.atom_types==at]=1
-            xs=self.positions[timestep,mask==1,0]
-            ys=self.positions[timestep,mask==1,1]
-            zs=self.positions[timestep,mask==1,2]
-            ax.scatter(xs,ys,zs,c=c,s=3)
+
+        if view == '3d':
+            fig = plt.figure(figsize=(10, 8))
+            ax = fig.add_subplot(projection='3d')
+
+            # Use different colors and sizes for different atom types
+            colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+            unique_types = sorted(set(self.atom_types))
+
+            for at, c in zip(unique_types, colors):
+                mask = self.atom_types == at
+                xs = self.positions[timestep, mask, 0]
+                ys = self.positions[timestep, mask, 1]
+                zs = self.positions[timestep, mask, 2]
+                ax.scatter(xs, ys, zs, c=c, s=size, alpha=alpha, label=str(at), edgecolors='none')
+
+            ax.set_xlabel('X (Å)')
+            ax.set_ylabel('Y (Å)')
+            ax.set_zlabel('Z (Å)')
+            ax.legend()
+
+            # Draw box outline
+            box = self.box_matrix
+            corners = np.array([
+                [0, 0, 0], [box[0,0], 0, 0], [box[0,0], box[1,1], 0], [0, box[1,1], 0],
+                [0, 0, box[2,2]], [box[0,0], 0, box[2,2]], [box[0,0], box[1,1], box[2,2]], [0, box[1,1], box[2,2]]
+            ])
+            edges = [(0,1), (1,2), (2,3), (3,0), (4,5), (5,6), (6,7), (7,4), (0,4), (1,5), (2,6), (3,7)]
+            for edge in edges:
+                pts = corners[list(edge)]
+                ax.plot3D(pts[:,0], pts[:,1], pts[:,2], 'k-', alpha=0.3, linewidth=1)
+        else:
+            fig, ax = plt.subplots(figsize=(8, 8))
+
+            # Select projection
+            if view == 'xy':
+                idx1, idx2 = 0, 1
+                labels = ('X (Å)', 'Y (Å)')
+            elif view == 'xz':
+                idx1, idx2 = 0, 2
+                labels = ('X (Å)', 'Z (Å)')
+            elif view == 'yz':
+                idx1, idx2 = 1, 2
+                labels = ('Y (Å)', 'Z (Å)')
+            else:
+                raise ValueError(f"view must be '3d', 'xy', 'xz', or 'yz', got {view}")
+
+            colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+            unique_types = sorted(set(self.atom_types))
+
+            for at, c in zip(unique_types, colors):
+                mask = self.atom_types == at
+                x = self.positions[timestep, mask, idx1]
+                y = self.positions[timestep, mask, idx2]
+                ax.scatter(x, y, c=c, s=size, alpha=alpha, label=str(at), edgecolors='none')
+
+            ax.set_xlabel(labels[0])
+            ax.set_ylabel(labels[1])
+            ax.legend()
+            ax.set_aspect('equal')
+
+        plt.tight_layout()
         plt.show()
 
 
@@ -290,13 +352,26 @@ class Trajectory:
         """
         Wrap all atomic positions to positive coordinates and create orthogonal box.
 
-        This creates an orthogonal box aligned with axes and wraps all positions
-        to be within [0, box_size) for each dimension.
+        For non-orthogonal boxes (e.g., monoclinic), this first converts to fractional
+        coordinates, wraps them, then converts back to Cartesian with an orthogonal box.
 
         Returns:
             New Trajectory with wrapped positions and orthogonal box_matrix
         """
-        # Get box dimensions from diagonal of box_matrix
+        # Convert positions to fractional coordinates
+        # fractional = positions @ inv(box_matrix)
+        box_inv = np.linalg.inv(self.box_matrix.T)  # Transpose because positions are row vectors
+
+        # Reshape for broadcasting: (n_frames, n_atoms, 3) @ (3, 3) -> (n_frames, n_atoms, 3)
+        n_frames, n_atoms, _ = self.positions.shape
+        positions_flat = self.positions.reshape(-1, 3)
+        fractional_flat = positions_flat @ box_inv
+        fractional = fractional_flat.reshape(n_frames, n_atoms, 3)
+
+        # Wrap fractional coordinates to [0, 1)
+        wrapped_fractional = fractional % 1.0
+
+        # Get box dimensions from diagonal of box_matrix for the new orthogonal box
         box_dims = np.array([self.box_matrix[0, 0],
                             self.box_matrix[1, 1],
                             self.box_matrix[2, 2]])
@@ -304,8 +379,11 @@ class Trajectory:
         # Create orthogonal box matrix
         new_box_matrix = np.diag(box_dims)
 
-        # Wrap positions using modulo
-        wrapped_positions = self.positions % box_dims[None, None, :]
+        # Convert back to Cartesian coordinates with orthogonal box
+        # cartesian = fractional @ box_matrix
+        wrapped_flat = wrapped_fractional.reshape(-1, 3)
+        cartesian_flat = wrapped_flat @ new_box_matrix.T
+        wrapped_positions = cartesian_flat.reshape(n_frames, n_atoms, 3)
 
         return Trajectory(
             atom_types=self.atom_types,

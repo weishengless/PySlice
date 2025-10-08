@@ -52,48 +52,160 @@ class WFData:
     array: np.ndarray  # Complex reciprocal-space wavefunction array (probe_positions, time, kx, ky, layer)
     probe: Probe
 
-    def plot(self,whichProbe=0,whichTimestep=0,powerscaling=0.25,filename=""):
+    def plot(self,whichProbe=0,whichTimestep=0,powerscaling=0.25,filename="",extent=None,avg=False):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        array = self.array[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
-        # Convert extent values to scalar values
-        kxs_min = xp.amin(self.kxs)
-        kxs_max = xp.amax(self.kxs)
-        kys_min = xp.amin(self.kys)
-        kys_max = xp.amax(self.kys)
-        if hasattr(kxs_min, 'cpu'):
-            kxs_min = kxs_min.cpu().item()
-            kxs_max = kxs_max.cpu().item()
-            kys_min = kys_min.cpu().item()
-            kys_max = kys_max.cpu().item()
-        elif hasattr(kxs_min, 'item'):
-            kxs_min = kxs_min.item()
-            kxs_max = kxs_max.item()
-            kys_min = kys_min.item()
-            kys_max = kys_max.item()
-        extent = ( kxs_min , kxs_max , kys_min , kys_max )
+
+        if avg:
+            # Average over all timesteps
+            array = self.array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
+            if hasattr(array, 'mean'):  # torch tensor
+                array = array.mean(dim=0)  # Average over time dimension
+            else:  # numpy array
+                array = np.mean(array, axis=0)
+        else:
+            array = self.array[whichProbe,whichTimestep,:,:,-1] # Shape: (kx, ky)
+
+        # Convert kxs and kys to numpy for indexing
+        if hasattr(self.kxs, 'cpu'):
+            kxs_np = self.kxs.cpu().numpy()
+            kys_np = self.kys.cpu().numpy()
+        else:
+            kxs_np = np.asarray(self.kxs)
+            kys_np = np.asarray(self.kys)
+
+        # If extent is provided, slice the data
+        if extent is not None:
+            kx_min, kx_max, ky_min, ky_max = extent
+
+            # Find indices for the requested extent
+            kx_mask = (kxs_np >= kx_min) & (kxs_np <= kx_max)
+            ky_mask = (kys_np >= ky_min) & (kys_np <= ky_max)
+
+            # Slice the array and coordinate arrays
+            array = array[kx_mask, :][:, ky_mask]
+            actual_extent = (kxs_np[kx_mask][0], kxs_np[kx_mask][-1],
+                           kys_np[ky_mask][0], kys_np[ky_mask][-1])
+        else:
+            # Use full extent
+            kxs_min = float(kxs_np.min())
+            kxs_max = float(kxs_np.max())
+            kys_min = float(kys_np.min())
+            kys_max = float(kys_np.max())
+            actual_extent = (kxs_min, kxs_max, kys_min, kys_max)
+
+        # Transpose for imshow convention
+        array = array.T  # imshow convention: y,x. our convention: x,y
+
         # Convert to numpy array if it's a tensor
-        img_data = xp.absolute(array)**powerscaling
+        # Apply powerscaling to intensity (|Ψ|²)
+        img_data = (xp.absolute(array)**2)**powerscaling
         if hasattr(img_data, 'cpu'):
             img_data = img_data.cpu().numpy()
         elif hasattr(img_data, '__array__'):
             img_data = np.asarray(img_data)
-        ax.imshow( img_data, cmap="inferno", extent=extent )
+        ax.imshow(img_data, cmap="inferno", extent=actual_extent, origin='lower')
         if len(filename)>3:
             plt.savefig(filename)
         else:
             plt.show()
 
-    def plot_reciprocalspace(self,whichProbe=0,whichTimestep=0):
-        self.plot(whichProbe,whichTimestep)
+    def plot_reciprocalspace(self,whichProbe=0,whichTimestep=0,extent=None,avg=False):
+        self.plot(whichProbe,whichTimestep,extent=extent,avg=avg)
 
-    def plot_realspace(self,whichProbe=0,whichTimestep=0):
+    def plot_phase(self,whichProbe=0,whichTimestep=0,extent=None,avg=False):
+        """
+        Plot the phase of the wavefunction in real space.
+
+        Args:
+            whichProbe: Probe index
+            whichTimestep: Timestep index
+            extent: Optional (xmin, xmax, ymin, ymax) to zoom
+            avg: If True, average over all timesteps before plotting
+        """
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        array = self.array[whichProbe,whichTimestep,:,:,-1].T # imshow convention: y,x. our convention: x,y
+
+        # Get array (with or without averaging)
+        if avg:
+            array = self.array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
+            if hasattr(array, 'mean'):  # torch tensor
+                array = array.mean(dim=0)  # Average over time dimension
+            else:  # numpy array
+                array = np.mean(array, axis=0)
+        else:
+            array = self.array[whichProbe,whichTimestep,:,:,-1]
+
+        # Transform to real space
         array = xp.fft.ifft2(array)
-        extent = ( np.amin(self.xs) , np.amax(self.xs) , np.amin(self.ys) , np.amax(self.ys) )
-        ax.imshow( xp.absolute(array)**.25, cmap="inferno", extent=extent )
+        xs_np = np.asarray(self.xs)
+        ys_np = np.asarray(self.ys)
+
+        # If extent is provided, slice the data
+        if extent is not None:
+            x_min, x_max, y_min, y_max = extent
+
+            # Find indices for the requested extent
+            x_mask = (xs_np >= x_min) & (xs_np <= x_max)
+            y_mask = (ys_np >= y_min) & (ys_np <= y_max)
+
+            # Slice the array
+            array = array[x_mask, :][:, y_mask]
+            actual_extent = (xs_np[x_mask][0], xs_np[x_mask][-1],
+                           ys_np[y_mask][0], ys_np[y_mask][-1])
+        else:
+            # Use full extent
+            actual_extent = (float(xs_np.min()), float(xs_np.max()),
+                           float(ys_np.min()), float(ys_np.max()))
+
+        # Transpose for imshow convention
+        array = array.T  # imshow convention: y,x. our convention: x,y
+
+        # Get phase
+        phase_data = xp.angle(array)
+        if hasattr(phase_data, 'cpu'):
+            phase_data = phase_data.cpu().numpy()
+        elif hasattr(phase_data, '__array__'):
+            phase_data = np.asarray(phase_data)
+
+        # Plot with phase colormap
+        im = ax.imshow(phase_data, cmap='hsv', extent=actual_extent, origin='lower',
+                       vmin=-np.pi, vmax=np.pi)
+        plt.colorbar(im, ax=ax, label='Phase (radians)')
+        ax.set_title('Phase in real space')
+        ax.set_xlabel('x (Å)')
+        ax.set_ylabel('y (Å)')
+        plt.show()
+
+    def plot_realspace(self,whichProbe=0,whichTimestep=0,extent=None,avg=False):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+
+        # Get array (with or without averaging)
+        if avg:
+            array = self.array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
+            if hasattr(array, 'mean'):  # torch tensor
+                array = array.mean(dim=0)  # Average over time dimension
+            else:  # numpy array
+                array = np.mean(array, axis=0)
+        else:
+            array = self.array[whichProbe,whichTimestep,:,:,-1]
+
+        array = array.T # imshow convention: y,x. our convention: x,y
+        array = xp.fft.ifft2(array)
+
+        # Use provided extent or calculate from data
+        if extent is None:
+            extent = ( np.amin(self.xs) , np.amax(self.xs) , np.amin(self.ys) , np.amax(self.ys) )
+
+        # Convert to numpy array if it's a tensor
+        img_data = xp.absolute(array)**.25
+        if hasattr(img_data, 'cpu'):
+            img_data = img_data.cpu().numpy()
+        elif hasattr(img_data, '__array__'):
+            img_data = np.asarray(img_data)
+
+        ax.imshow( img_data, cmap="inferno", extent=extent )
         plt.show()
 
     def propagate_free_space(self,dz): # UNITS OF ANGSTROM
