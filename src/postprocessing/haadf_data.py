@@ -69,10 +69,16 @@ class HAADFData(WFData):
                 self.adf[i,j]=collected #; print(collected)
         return self.adf
 
-    def plot(self):
+    def plot(self,filename=None):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         array = self.adf.T # imshow convention: y,x. our convention: x,y
         extent = ( xp.amin(self.xs) , xp.amax(self.xs) , xp.amin(self.ys) , xp.amax(self.ys) )
         ax.imshow(array, cmap="inferno",extent=extent)
-        plt.show()
+        ax.set_xlabel("x ($\\AA$)")
+        ax.set_ylabel("y ($\\AA$)")
+
+        if filename is not None:
+            plt.savefig(filename)
+        else:
+            plt.show()

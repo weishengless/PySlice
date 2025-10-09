@@ -401,7 +401,10 @@ class Potential:
 
         extent = (xs_min, xs_max, ys_min, ys_max)
         ax.imshow(array, cmap="inferno",extent=extent)
-        if len(filename)>3:
+        ax.set_xlabel("x ($\\AA$)")
+        ax.set_ylabel("y ($\\AA$)")
+
+        if filename is not None:
             plt.savefig(filename)
         else:
             plt.show()

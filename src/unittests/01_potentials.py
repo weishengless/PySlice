@@ -33,7 +33,7 @@ else:
 	if dz>1e-6:
 		print("ERROR! POTENTIAL DOES NOT MATCH PREVIOUS RUN",dz*100,"%")
 
-potential.plot()
+potential.plot("outputs/figs/01_potentials.png")
 
 #import matplotlib.pyplot as plt
 #fig, ax = plt.subplots()

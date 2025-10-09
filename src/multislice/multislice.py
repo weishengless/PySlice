@@ -175,7 +175,7 @@ class Probe:
         self.complex_dtype = complex_dtype
         return self
 
-    def plot(self):
+    def plot(self,filename=None):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         array = self.array.T # imshow convention: y,x. our convention: x,y
@@ -199,7 +199,13 @@ class Probe:
 
         extent = (xs_min, xs_max, ys_min, ys_max)
         ax.imshow(plot_array, cmap="inferno",extent=extent)
-        plt.show()
+        ax.set_xlabel("x ($\\AA$)")
+        ax.set_ylabel("y ($\\AA$)")
+
+        if filename is not None:
+            plt.savefig(filename)
+        else:
+            plt.show()
 
     def defocus(self,dz): # POSITIVE DEFOCUS PUTS BEAM WAIST ABOVE SAMPLE, UNITS OF ANGSTROM
         kx_grid, ky_grid = xp.meshgrid(self.kxs, self.kys, indexing='ij')

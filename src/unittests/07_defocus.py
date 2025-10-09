@@ -43,13 +43,14 @@ for z in zs:
 	ys_np = probe.ys.cpu().numpy() if hasattr(probe.ys, 'cpu') else probe.ys
 	CS=plt.contour(xs_np[::3], ys_np[::3], (z+ary[::3,::3]/zmax).T) #, levels=lv,alpha=alpha,cmap=cmap)
 	probe.defocus(dz)
-plt.show()	
+#plt.show()	
+plt.savefig("outputs/figs/07_defocus_3D.png")
 
 
 #probe.plot()
 probe=Probe(xs,ys,mrad=30,eV=100e3)
 probe.defocus(10*1e2)
-probe.plot()
+probe.plot("outputs/figs/07_defocus_2D.png")
 
 result = Propagate(probe,potential)
 if hasattr(result, 'cpu'):

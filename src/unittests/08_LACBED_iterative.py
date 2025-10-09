@@ -36,14 +36,35 @@ trajectory = trajectories[0].tile_positions([1,1,10],trajectories)
 #        /  \  and go back to reciprocal space to 
 #       /    \  view the "texture" of a single disk
 
-# OPTION TWO, LET TRAJECTORY.PY DO THE STACKING
-calculator=MultisliceCalculator()
-calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5)			
-calculator.base_probe.defocus(-1000)
-exitwaves = calculator.run()
-exitwaves.propagate_free_space(1000-calculator.lz)
+# OPTION ONE, CYCLE ITERATIVELY
+for i in range(10):
+	# SET UP SIMULATION
+	calculator=MultisliceCalculator()
+	calculator.setup(trajectories[i],aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5)			
+	# LACBED USES A DEFOCUSED THE PROBE		
+	if i==0:								
+		calculator.base_probe.defocus(-1000)
+	else:									
+		calculator.base_probe.array = last_slice_exit
+	# RUN THE SIMULATION
+	exitwaves = calculator.run()
+	exit_data = exitwaves.array[0,0,:,:,0]
+	if hasattr(exit_data, 'cpu'):
+		exit_data = exit_data.cpu().numpy()
+	last_slice_exit = np.fft.ifft2(np.fft.ifftshift(exit_data))
+
+# REPROPAGATE TO PROBE FOCAL POINT		
+exitwaves.propagate_free_space(1000-10*calculator.lz)
+
+# PREVIEW UNMASKED REAL AND RECIPROCAL SPACE
+#exitwaves.plot_reciprocalspace()
+#exitwaves.plot_realspace()
+
+# APPLY MASK ABOUT REAL-SPACE DIFFRACTED PROBE
 exitwaves.applyMask(5,"real")
-exitwaves.plot_reciprocalspace()
+
+#exitwaves.plot_realspace()
+exitwaves.plot_reciprocalspace("outputs/figs/08_LACBED_iterative.png")
 
 ary=exitwaves.array
 
@@ -60,4 +81,5 @@ else:
 	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
 	if dz>1e-6:
 		print("ERROR! LACBED DOES NOT MATCH PREVIOUS RUN",dz*100,"%")
+
 

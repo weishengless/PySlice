@@ -53,7 +53,7 @@ xs=haadf.xs ; ys=haadf.ys
 #fig, ax = plt.subplots()
 #ax.imshow(ary.T, cmap="inferno")
 #plt.show()
-haadf.plot()
+haadf.plot("outputs/figs/04_haadf.png")
 
 ary=np.asarray(ary)
 if not os.path.exists("outputs/haadf-test.npy"):

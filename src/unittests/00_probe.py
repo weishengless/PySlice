@@ -11,7 +11,7 @@ mrads=[1,3,5,15,30]
 ary=np.zeros((5,501,491),dtype=complex)
 for i,mrad in enumerate(mrads):
 	probe=Probe(xs,ys,mrad=mrad,eV=100e3)
-	probe.plot()
+	probe.plot("outputs/figs/00_probe_"+str(i)+".png")
 	if hasattr(probe, 'to_cpu'):
 		ary[i] = probe.to_cpu()
 	else:
@@ -32,4 +32,5 @@ else:
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
 ax.imshow(np.absolute(ary.T)**.25, cmap="inferno")
-plt.show()
+plt.savefig("outputs/figs/00_probe.png")
+#plt.show()

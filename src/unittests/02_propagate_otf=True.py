@@ -27,7 +27,7 @@ potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 
 # TEST PROPAGATION
 # Handle device conversion properly for PyTorch tensors
-result = Propagate(probe,potential)
+result = Propagate(probe,potential,onthefly=True)
 if hasattr(result, 'cpu'):
     ary = result.cpu().numpy()  # Convert PyTorch tensor to numpy
 else:
@@ -47,4 +47,6 @@ fig, ax = plt.subplots()
 #ax.imshow(np.absolute(ary), cmap="inferno")
 #plt.show()
 ax.imshow(np.absolute(np.fft.fftshift(np.fft.fft2(ary)))**.1, cmap="inferno")
-plt.show()
+plt.savefig("outputs/figs/02_propagate_otf=True.png")
+
+#result.plot()

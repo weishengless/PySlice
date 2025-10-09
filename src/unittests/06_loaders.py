@@ -33,7 +33,7 @@ for i,filename in enumerate(testFiles.keys()):
 	atom_types=trajectory.atom_types
 	xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
 	potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
-	potential.plot("outputs/"+str(i)+".png")
+	potential.plot("outputs/figs/06_loaders_"+str(i)+".png")
 
 # Test loading from ASE Atoms object (single frame)
 print("\nTesting ASE Atoms object loading (single frame)")

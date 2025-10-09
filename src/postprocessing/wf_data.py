@@ -52,7 +52,7 @@ class WFData:
     array: np.ndarray  # Complex reciprocal-space wavefunction array (probe_positions, time, kx, ky, layer)
     probe: Probe
 
-    def plot(self,whichProbe=0,whichTimestep=0,powerscaling=0.25,filename="",extent=None,avg=False):
+    def plot(self,filename=None,whichProbe=0,whichTimestep=0,powerscaling=0.25,extent=None,avg=False):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
 
@@ -105,10 +105,14 @@ class WFData:
         elif hasattr(img_data, '__array__'):
             img_data = np.asarray(img_data)
         ax.imshow(img_data, cmap="inferno", extent=actual_extent, origin='lower')
-        if len(filename)>3:
+        ax.set_xlabel("kx ($\\AA^{-1}$)")
+        ax.set_ylabel("ky ($\\AA^{-1}$)")
+
+        if filename is not None:
             plt.savefig(filename)
         else:
             plt.show()
+
 
     def plot_reciprocalspace(self,whichProbe=0,whichTimestep=0,extent=None,avg=False):
         self.plot(whichProbe,whichTimestep,extent=extent,avg=avg)

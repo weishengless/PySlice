@@ -33,7 +33,8 @@ ary = intensity_data.cpu().numpy() if hasattr(intensity_data, 'cpu') else np.asa
 
 fig, ax = plt.subplots()
 ax.imshow(ary.T, cmap="inferno")
-plt.show()
+#plt.show()
+plt.savefig("outputs/figs/05_tacaw.png")
 
 if not os.path.exists("outputs/tacaw-test.npy"):
 	np.save("outputs/tacaw-test.npy",ary)

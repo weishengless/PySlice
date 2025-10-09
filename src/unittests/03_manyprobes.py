@@ -78,4 +78,5 @@ fft=np.fft.fft2(ary,axes=(1,2)) ; fft[:,q<2]=0 # mask in reciprocal space (keep 
 #plt.show()
 HAADF=np.sum(np.absolute(fft),axis=(1,2)).reshape((len(x),len(y)))
 ax.imshow(HAADF, cmap="inferno")
-plt.show()
+plt.savefig("outputs/figs/03_manyprobes.png")
+
