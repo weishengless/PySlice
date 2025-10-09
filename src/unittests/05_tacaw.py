@@ -4,6 +4,7 @@ from src.io.loader import Loader
 from src.multislice.multislice import probe_grid
 from src.multislice.calculators import MultisliceCalculator
 from src.postprocessing.tacaw_data import TACAWData
+from src.postprocessing.testtools import differ
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil
@@ -36,11 +37,4 @@ ax.imshow(ary.T, cmap="inferno")
 #plt.show()
 plt.savefig("outputs/figs/05_tacaw.png")
 
-if not os.path.exists("outputs/tacaw-test.npy"):
-	np.save("outputs/tacaw-test.npy",ary)
-else:
-	previous=np.load("outputs/tacaw-test.npy")
-	F , D = np.absolute(ary) , np.absolute(previous)
-	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
-	if dz>1e-6:
-		print("ERROR! TACAW SLICE DOES NOT MATCH PREVIOUS RUN",dz*100,"%")
+differ(ary,"outputs/tacaw-test.npy","TACAW SLICE")

@@ -4,6 +4,7 @@ from src.io.loader import Loader
 from src.multislice.multislice import probe_grid
 from src.multislice.calculators import MultisliceCalculator
 from src.postprocessing.haadf_data import HAADFData
+from src.postprocessing.testtools import differ
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil
@@ -56,11 +57,4 @@ xs=haadf.xs ; ys=haadf.ys
 haadf.plot("outputs/figs/04_haadf.png")
 
 ary=np.asarray(ary)
-if not os.path.exists("outputs/haadf-test.npy"):
-	np.save("outputs/haadf-test.npy",ary)
-else:
-	previous=np.load("outputs/haadf-test.npy")
-	F , D = np.absolute(ary) , np.absolute(previous)
-	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
-	if dz>1e-6:
-		print("ERROR! EXIT WAVE DOES NOT MATCH PREVIOUS RUN",dz*100,"%")
+differ(ary,"outputs/haadf-test.npy","HAADF")

@@ -2,6 +2,7 @@ import sys,os
 sys.path.insert(1,"../../")
 from src.io.loader import Loader
 from src.multislice.potentials import gridFromTrajectory,Potential
+from src.postprocessing.testtools import differ
 import numpy as np
 #from ..src.tacaw.ms_calculator_npy import gridFromTrajectory
 #from src.tacaw.multislice_npy import Probe,Propagate ; import numpy as xp
@@ -23,15 +24,7 @@ potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 potential.build()
 ary=potential.to_cpu()  # Convert to CPU numpy array properly
 
-print(ary.shape)
-if not os.path.exists("outputs/potentials-test.npy"):
-	np.save("outputs/potentials-test.npy",ary[::3,::3,:])
-else:
-	previous=np.load("outputs/potentials-test.npy")
-	F , D = np.absolute(ary)[::3,::3,:] , np.absolute(previous)
-	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
-	if dz>1e-6:
-		print("ERROR! POTENTIAL DOES NOT MATCH PREVIOUS RUN",dz*100,"%")
+differ(ary[::3,::3,:],"outputs/potentials-test.npy","POTENTIAL")
 
 potential.plot("outputs/figs/01_potentials.png")
 

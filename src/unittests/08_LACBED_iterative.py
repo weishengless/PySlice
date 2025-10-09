@@ -5,6 +5,7 @@ from src.multislice.multislice import probe_grid
 from src.multislice.calculators import MultisliceCalculator
 from src.postprocessing.haadf_data import HAADFData
 from src.multislice.potentials import gridFromTrajectory,Potential
+from src.postprocessing.testtools import differ
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil
@@ -72,14 +73,4 @@ ary=exitwaves.array
 if hasattr(ary, 'cpu'):
 	ary = ary.cpu().numpy()
 
-print(ary.shape)
-if not os.path.exists("outputs/lacbed-test.npy"):
-	np.save("outputs/lacbed-test.npy",ary[::3,::3])
-else:
-	previous=np.load("outputs/lacbed-test.npy")
-	F , D = np.absolute(ary)[::3,::3] , np.absolute(previous)
-	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
-	if dz>1e-6:
-		print("ERROR! LACBED DOES NOT MATCH PREVIOUS RUN",dz*100,"%")
-
-
+differ(ary[::3,::3],"outputs/lacbed-test.npy","LACBED")

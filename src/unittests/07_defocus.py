@@ -4,6 +4,7 @@ from src.io.loader import Loader
 from src.multislice.multislice import probe_grid,Probe,Propagate
 from src.multislice.potentials import gridFromTrajectory,Potential
 from src.multislice.calculators import MultisliceCalculator
+from src.postprocessing.testtools import differ
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil
@@ -52,12 +53,14 @@ probe=Probe(xs,ys,mrad=30,eV=100e3)
 probe.defocus(10*1e2)
 probe.plot("outputs/figs/07_defocus_2D.png")
 
+differ(probe.array,"outputs/defocus-test.npy","DEFOCUSED PROBE")
+
 result = Propagate(probe,potential)
 if hasattr(result, 'cpu'):
     result = result.cpu()
 
-import matplotlib.pyplot as plt
-fig, ax = plt.subplots()
-ax.imshow(np.absolute(np.fft.fftshift(np.fft.fft2(result))), cmap="inferno")
-plt.show()
+#import matplotlib.pyplot as plt
+#fig, ax = plt.subplots()
+#ax.imshow(np.absolute(np.fft.fftshift(np.fft.fft2(result))), cmap="inferno")
+#plt.show()
 

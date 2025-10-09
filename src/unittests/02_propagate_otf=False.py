@@ -3,6 +3,7 @@ sys.path.insert(1,"../../")
 from src.io.loader import Loader
 from src.multislice.multislice import Probe,Propagate
 from src.multislice.potentials import gridFromTrajectory,Potential
+from src.postprocessing.testtools import differ
 import numpy as np
 #from ..src.tacaw.ms_calculator_npy import gridFromTrajectory
 #from src.tacaw.multislice_npy import Probe,Propagate ; import numpy as xp
@@ -33,14 +34,7 @@ if hasattr(result, 'cpu'):
 else:
     ary = np.asarray(result)  # Already numpy array
 
-if not os.path.exists("outputs/propagate-test.npy"):
-	np.save("outputs/propagate-test.npy",ary)
-else:
-	previous=np.load("outputs/propagate-test.npy")
-	F , D = np.absolute(ary) , np.absolute(previous)
-	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
-	if dz>1e-6:
-		print("ERROR! EXIT WAVE DOES NOT MATCH PREVIOUS RUN",dz*100,"%")
+#arydiffer(ary,"outputs/propagate-test.npy","EXIT WAVE")
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots()

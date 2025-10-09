@@ -2,6 +2,7 @@ import sys,os,glob
 sys.path.insert(1,"../../")
 from src.io.loader import Loader
 from src.multislice.potentials import gridFromTrajectory,Potential
+from src.postprocessing.testtools import differ
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -34,6 +35,7 @@ for i,filename in enumerate(testFiles.keys()):
 	xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
 	potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 	potential.plot("outputs/figs/06_loaders_"+str(i)+".png")
+	differ(positions,"outputs/loaders-test_"+filename+".npy","POSITIONS")
 
 # Test loading from ASE Atoms object (single frame)
 print("\nTesting ASE Atoms object loading (single frame)")

@@ -1,6 +1,7 @@
 import sys,os
 sys.path.insert(1,"../../")
 from src.multislice.multislice import Probe
+from src.postprocessing.testtools import differ
 import numpy as np
 
 # Generate a few dummy probes
@@ -18,16 +19,7 @@ for i,mrad in enumerate(mrads):
 		ary[i] = np.asarray(probe.array)
 ary=np.reshape(ary,(501*5,491))
 
-if not os.path.exists("outputs/probe-test.npy"):
-	np.save("outputs/probe-test.npy",ary)
-else:
-	previous=np.load("outputs/probe-test.npy")
-	F , D = np.absolute(ary) , np.absolute(previous)
-	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
-	if dz>1e-6:
-		print("ERROR! POTENTIAL DOES NOT MATCH PREVIOUS RUN",dz*100,"%")
-
-
+differ(ary,"outputs/probe-test.npy","PROBE")
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots()

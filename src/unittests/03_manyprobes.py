@@ -3,6 +3,7 @@ sys.path.insert(1,"../../")
 from src.io.loader import Loader
 from src.multislice.multislice import Probe,Propagate,create_batched_probes
 from src.multislice.potentials import gridFromTrajectory,Potential
+from src.postprocessing.testtools import differ
 import numpy as np
 import matplotlib.pyplot as plt
 #from ..src.tacaw.ms_calculator_npy import gridFromTrajectory
@@ -53,15 +54,8 @@ if hasattr(result, 'cpu'):
 else:
     ary = np.asarray(result)  # Already numpy array
 
-print(np.shape(ary))
-if not os.path.exists("outputs/manyprobes-test.npy"):
-	np.save("outputs/manyprobes-test.npy",ary[::2,::2,::2])
-else:
-	previous=np.load("outputs/manyprobes-test.npy")
-	F , D = np.absolute(ary)[::2,::2,::2] , np.absolute(previous)
-	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
-	if dz>1e-6:
-		print("ERROR! EXIT WAVE DOES NOT MATCH PREVIOUS RUN",dz*100,"%")
+
+differ(ary[::2,::2,::2],"outputs/manyprobes-test.npy","EXIT WAVE")
 
 # ASSEMBLE HAADF IMAGE
 # Convert PyTorch tensors to numpy arrays for k-space calculations
