@@ -392,3 +392,91 @@ class Trajectory:
             box_matrix=new_box_matrix,
             timestep=self.timestep
         )
+
+    def rotate_to(self, direction: Tuple[int, int, int]) -> 'Trajectory':
+        """
+        Rotate the structure so that a crystallographic direction aligns with the z-axis.
+
+        Args:
+            direction: Miller indices [h, k, l] defining the direction to align with z
+
+        Returns:
+            New Trajectory with rotated positions, velocities, and box_matrix
+        """
+        h, k, l = direction
+
+        # Convert Miller indices to real-space Cartesian direction using box_matrix
+        # The direction in reciprocal space becomes a real-space vector via box_matrix^T
+        miller_vec = np.array([h, k, l], dtype=float)
+        direction_cart = self.box_matrix.T @ miller_vec
+
+        # Normalize the direction vector
+        direction_cart = direction_cart / np.linalg.norm(direction_cart)
+
+        # Target direction is z-axis
+        z_axis = np.array([0.0, 0.0, 1.0])
+
+        # Calculate rotation axis and angle using Rodrigues' rotation formula
+        # The rotation axis is perpendicular to both vectors: k = v1 × v2
+        # The rotation angle is: θ = arccos(v1 · v2)
+        # The rotation matrix is: R = I + sin(θ)*K + (1-cos(θ))*K²
+        # where K is the cross-product matrix of the rotation axis
+
+        # If direction is already aligned (or anti-aligned) with z, handle specially
+        dot_product = np.dot(direction_cart, z_axis)
+        if np.abs(dot_product - 1.0) < 1e-10:
+            # Already aligned, return copy
+            return Trajectory(
+                atom_types=self.atom_types,
+                positions=self.positions.copy(),
+                velocities=self.velocities.copy(),
+                box_matrix=self.box_matrix.copy(),
+                timestep=self.timestep
+            )
+        elif np.abs(dot_product + 1.0) < 1e-10:
+            # Anti-aligned, rotate 180° around any perpendicular axis (use x)
+            rotation_matrix = np.array([
+                [1.0, 0.0, 0.0],
+                [0.0, -1.0, 0.0],
+                [0.0, 0.0, -1.0]
+            ])
+        else:
+            # General case: use Rodrigues' formula
+            rotation_axis = np.cross(direction_cart, z_axis)
+            rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
+
+            angle = np.arccos(np.clip(dot_product, -1.0, 1.0))
+
+            # Build the cross-product matrix K
+            kx, ky, kz = rotation_axis
+            K = np.array([
+                [0.0, -kz, ky],
+                [kz, 0.0, -kx],
+                [-ky, kx, 0.0]
+            ])
+
+            # Rodrigues' rotation matrix: R = I + sin(θ)*K + (1-cos(θ))*K²
+            I = np.eye(3)
+            rotation_matrix = I + np.sin(angle) * K + (1.0 - np.cos(angle)) * (K @ K)
+
+        # Apply rotation to positions and velocities
+        n_frames, n_atoms, _ = self.positions.shape
+        positions_flat = self.positions.reshape(-1, 3)
+        velocities_flat = self.velocities.reshape(-1, 3)
+
+        rotated_positions_flat = positions_flat @ rotation_matrix.T
+        rotated_velocities_flat = velocities_flat @ rotation_matrix.T
+
+        rotated_positions = rotated_positions_flat.reshape(n_frames, n_atoms, 3)
+        rotated_velocities = rotated_velocities_flat.reshape(n_frames, n_atoms, 3)
+
+        # Rotate the box_matrix as well
+        rotated_box_matrix = rotation_matrix @ self.box_matrix
+
+        return Trajectory(
+            atom_types=self.atom_types,
+            positions=rotated_positions,
+            velocities=rotated_velocities,
+            box_matrix=rotated_box_matrix,
+            timestep=self.timestep
+        )
