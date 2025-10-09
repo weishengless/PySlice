@@ -11,7 +11,7 @@ import os,shutil
 #if os.path.exists("psi_data"):
 #	shutil.rmtree("psi_data")
 
-dump="hBN_truncated.lammpstrj"
+dump="inputs/hBN_truncated.lammpstrj"
 dt=.005
 types={1:"B",2:"N"}
 a,b=2.4907733333333337,2.1570729817355123
@@ -35,10 +35,10 @@ fig, ax = plt.subplots()
 ax.imshow(ary.T, cmap="inferno")
 plt.show()
 
-if not os.path.exists("tacaw-test.npy"):
-	np.save("tacaw-test.npy",ary)
+if not os.path.exists("outputs/tacaw-test.npy"):
+	np.save("outputs/tacaw-test.npy",ary)
 else:
-	previous=np.load("tacaw-test.npy")
+	previous=np.load("outputs/tacaw-test.npy")
 	F , D = np.absolute(ary) , np.absolute(previous)
 	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
 	if dz>1e-6:

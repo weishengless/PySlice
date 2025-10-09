@@ -9,7 +9,7 @@ import numpy as np
 #from src.tacaw.multislice_torch import Probe,PropagateBatch,create_batched_probes ; import torch as xp
 #from src.tacaw.potential import Potential
 
-dump="hBN_truncated.lammpstrj"
+dump="inputs/hBN_truncated.lammpstrj"
 dt=.005
 types={1:"B",2:"N"}
 
@@ -33,10 +33,10 @@ if hasattr(result, 'cpu'):
 else:
     ary = np.asarray(result)  # Already numpy array
 
-if not os.path.exists("propagate-test.npy"):
-	np.save("propagate-test.npy",ary)
+if not os.path.exists("outputs/propagate-test.npy"):
+	np.save("outputs/propagate-test.npy",ary)
 else:
-	previous=np.load("propagate-test.npy")
+	previous=np.load("outputs/propagate-test.npy")
 	F , D = np.absolute(ary) , np.absolute(previous)
 	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
 	if dz>1e-6:

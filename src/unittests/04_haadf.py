@@ -11,7 +11,7 @@ import os,shutil
 #if os.path.exists("psi_data"):
 #	shutil.rmtree("psi_data")
 
-dump="hBN_truncated.lammpstrj"
+dump="inputs/hBN_truncated.lammpstrj"
 dt=.005
 types={1:"B",2:"N"}
 a,b=2.4907733333333337,2.1570729817355123
@@ -56,10 +56,10 @@ xs=haadf.xs ; ys=haadf.ys
 haadf.plot()
 
 ary=np.asarray(ary)
-if not os.path.exists("haadf-test.npy"):
-	np.save("haadf-test.npy",ary)
+if not os.path.exists("outputs/haadf-test.npy"):
+	np.save("outputs/haadf-test.npy",ary)
 else:
-	previous=np.load("haadf-test.npy")
+	previous=np.load("outputs/haadf-test.npy")
 	F , D = np.absolute(ary) , np.absolute(previous)
 	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
 	if dz>1e-6:

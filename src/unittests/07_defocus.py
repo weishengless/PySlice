@@ -11,7 +11,7 @@ import os,shutil
 #if os.path.exists("psi_data"):
 #	shutil.rmtree("psi_data")
 
-dump="hBN_truncated.lammpstrj"
+dump="inputs/hBN_truncated.lammpstrj"
 dt=.005
 types={1:"B",2:"N"}
 a,b=2.4907733333333337,2.1570729817355123

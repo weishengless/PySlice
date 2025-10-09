@@ -8,7 +8,7 @@ import numpy as np
 #from src.tacaw.multislice_torch import Probe,PropagateBatch,create_batched_probes ; import torch as xp
 #from src.tacaw.potential import Potential
 
-dump="hBN_truncated.lammpstrj"
+dump="inputs/hBN_truncated.lammpstrj"
 dt=.005
 types={1:"B",2:"N"}
 
@@ -24,10 +24,10 @@ potential.build()
 ary=potential.to_cpu()  # Convert to CPU numpy array properly
 
 print(ary.shape)
-if not os.path.exists("potentials-test.npy"):
-	np.save("potentials-test.npy",ary[::3,::3,:])
+if not os.path.exists("outputs/potentials-test.npy"):
+	np.save("outputs/potentials-test.npy",ary[::3,::3,:])
 else:
-	previous=np.load("potentials-test.npy")
+	previous=np.load("outputs/potentials-test.npy")
 	F , D = np.absolute(ary)[::3,::3,:] , np.absolute(previous)
 	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
 	if dz>1e-6:

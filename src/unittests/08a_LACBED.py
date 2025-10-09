@@ -9,9 +9,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil
 
-#dump="hBN_truncated.lammpstrj" ; dt=.005 ; types={1:"B",2:"N"}
-dump="Si_truncated.lammpstrj" ; dt=.002 ; types={1:"Si"}
-#dump="silicon.cif" ; dt=.002 ; types={1:"Si"}
+#dump="inputs/hBN_truncated.lammpstrj" ; dt=.005 ; types={1:"B",2:"N"}
+dump="inputs/Si_truncated.lammpstrj" ; dt=.002 ; types={1:"Si"}
+#dump="inputs/silicon.cif" ; dt=.002 ; types={1:"Si"}
 
 
 # LOAD TRAJECTORY
@@ -73,10 +73,10 @@ if hasattr(ary, 'cpu'):
 	ary = ary.cpu().numpy()
 
 print(ary.shape)
-if not os.path.exists("lacbed-test.npy"):
-	np.save("lacbed-test.npy",ary[::3,::3])
+if not os.path.exists("outputs/lacbed-test.npy"):
+	np.save("outputs/lacbed-test.npy",ary[::3,::3])
 else:
-	previous=np.load("lacbed-test.npy")
+	previous=np.load("outputs/lacbed-test.npy")
 	F , D = np.absolute(ary)[::3,::3] , np.absolute(previous)
 	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
 	if dz>1e-6:

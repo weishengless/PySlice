@@ -18,10 +18,10 @@ for i,mrad in enumerate(mrads):
 		ary[i] = np.asarray(probe.array)
 ary=np.reshape(ary,(501*5,491))
 
-if not os.path.exists("probe-test.npy"):
-	np.save("probe-test.npy",ary)
+if not os.path.exists("outputs/probe-test.npy"):
+	np.save("outputs/probe-test.npy",ary)
 else:
-	previous=np.load("probe-test.npy")
+	previous=np.load("outputs/probe-test.npy")
 	F , D = np.absolute(ary) , np.absolute(previous)
 	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
 	if dz>1e-6:

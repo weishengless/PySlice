@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Remove previously-cached npy files (we want to rest reloading them)
-outfiles=glob.glob("*.npy")
+outfiles=glob.glob("inputs/*.npy")
 for f in outfiles:
 	if "-test" not in f:
 		os.remove(f)
@@ -25,15 +25,15 @@ testFiles={"silicon.positions":{"atom_style":"molecular"},	# lammps input positi
 
 # for each: load, generate potential, plot potential
 for i,filename in enumerate(testFiles.keys()):
-	print("attempting to load",filename)
-	trajectory=Loader(filename,ovitokwargs=testFiles[filename]).load()
+	print("attempting to load","inputs/"+filename)
+	trajectory=Loader("inputs/"+filename,ovitokwargs=testFiles[filename]).load()
 	#trajectory = trajectory.generate_random_displacements(n_displacements=10,sigma=1)
 	#print(len(trajectory.positions))
 	positions = trajectory.positions[0]
 	atom_types=trajectory.atom_types
 	xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
 	potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
-	potential.plot(str(i)+".png")
+	potential.plot("outputs/"+str(i)+".png")
 
 # Test loading from ASE Atoms object (single frame)
 print("\nTesting ASE Atoms object loading (single frame)")

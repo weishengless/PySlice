@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 #from src.tacaw.multislice_torch import Probe,PropagateBatch,create_batched_probes ; import torch as xp
 #from src.tacaw.potential import Potential
 
-dump="hBN_truncated.lammpstrj"
+dump="inputs/hBN_truncated.lammpstrj"
 dt=.005
 types={1:"B",2:"N"}
 a,b=2.4907733333333337,2.1570729817355123
@@ -54,10 +54,10 @@ else:
     ary = np.asarray(result)  # Already numpy array
 
 print(np.shape(ary))
-if not os.path.exists("manyprobes-test.npy"):
-	np.save("manyprobes-test.npy",ary[::2,::2,::2])
+if not os.path.exists("outputs/manyprobes-test.npy"):
+	np.save("outputs/manyprobes-test.npy",ary[::2,::2,::2])
 else:
-	previous=np.load("manyprobes-test.npy")
+	previous=np.load("outputs/manyprobes-test.npy")
 	F , D = np.absolute(ary)[::2,::2,::2] , np.absolute(previous)
 	dz=np.sum( (F-D)**2 ) / np.sum( F**2 ) # a scaling-resistant values-near-zero-resistance residual function
 	if dz>1e-6:

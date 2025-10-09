@@ -137,7 +137,7 @@ if __name__ == "__main__":
         abtem_time = end - start
 
         # Write results to file
-        with open(f'result_system_{size}.txt', 'w') as f:
+        with open(f'outputs/result_system_{size}.txt', 'w') as f:
             f.write(f"{size},{len(atoms)},{pyslice_time},{abtem_time}\n")
 
     elif test_type == 'probe':
@@ -215,5 +215,5 @@ if __name__ == "__main__":
         abtem_time = end - start
 
         # Write results to file
-        with open(f'result_probe_{n_probes}.txt', 'w') as f:
+        with open(f'outputs/result_probe_{n_probes}.txt', 'w') as f:
             f.write(f"{n_probes},{pyslice_time},{abtem_time}\n")
