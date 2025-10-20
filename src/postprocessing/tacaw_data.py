@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from typing import Optional, Tuple, Dict, Any, List, Union
 from pathlib import Path
-import logging
+import logging, os
 from .wf_data import WFData
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,11 @@ class TACAWData(WFData):
             TACAWData object with intensity data |Ψ(ω,q)|² for the specified layer
         """
 
+        if os.path.exists(self.cache_dir / "tacaw.npy"):
+            self.frequencies = np.load(self.cache_dir / "tacaw_freq.npy")
+            self.intensity = np.load(self.cache_dir / "tacaw.npy")
+            return
+
         # Default to last layer if not specified
         if layer_index is None:
             layer_index = len(self.layer) - 1
@@ -104,6 +109,9 @@ class TACAWData(WFData):
             self.intensity = torch.abs(wf_fft)**2
         else:
             self.intensity = np.abs(wf_fft)**2
+
+        np.save(self.cache_dir / "tacaw_freq.npy", self.frequencies)
+        np.save(self.cache_dir / "tacaw.npy", self.intensity)
 
 
     def spectrum(self, probe_index: int = None) -> np.ndarray:
@@ -351,6 +359,32 @@ class TACAWData(WFData):
                 dispersion[:, i] = intensity_at_k
         
         return dispersion
+
+    # Since there are multiple things returnable by the above functions, i'm just offering up a generic heatmap plotter function here, where you pass Z,x,y
+    def plot(self,intensities,xvals,yvals,xlabel="kx ($\\AA^{-1}$)",ylabel="ky ($\\AA^{-1}$)",filename=None):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        array = np.absolute(intensities) # imshow convention: y,x. our convention: x,y
+        aspect = None
+        if isinstance(xvals,str):
+            xlabel={"kx":"kx ($\\AA^{-1}$)","x":"x ($\\AA$)","k":"k ($\\AA^{-1}$)"}[xvals]
+            xvals={"kx":np.asarray(self.kxs),"x":np.asarray(self.xs)}[xvals]
+        if isinstance(yvals,str):
+            if yvals == "omega":
+                aspect = "auto"
+            #if yvals == "ky":
+            #    array = array.T
+            ylabel={"ky":"ky ($\\AA^{-1}$)","y":"y ($\\AA$)","omega":"frequency (THz)"}[yvals]
+            yvals={"ky":np.asarray(self.kys),"y":np.asarray(self.ys),"omega":self.frequencies}[yvals]
+        extent = ( np.amin(xvals) , np.amax(xvals) , np.amin(yvals) , np.amax(yvals) )
+        ax.imshow(array, cmap="inferno",extent=extent,aspect=aspect)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+
+        if filename is not None:
+            plt.savefig(filename)
+        else:
+            plt.show()
 
 
 # Example usage (for testing within this file)

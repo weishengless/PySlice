@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 from typing import List, Tuple
 from ..multislice.multislice import Probe
+from pathlib import Path
 
 try:
     import torch ; xp = torch
@@ -51,6 +52,7 @@ class WFData:
     layer: np.ndarray # Layer indices
     array: np.ndarray  # Complex reciprocal-space wavefunction array (probe_positions, time, kx, ky, layer)
     probe: Probe
+    cache_dir: Path
 
     def plot(self,filename=None,whichProbe=0,whichTimestep=0,powerscaling=0.25,extent=None,avg=False):
         import matplotlib.pyplot as plt

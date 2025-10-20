@@ -268,7 +268,8 @@ class MultisliceCalculator:
             ys=self.ys,
             layer=layer_array,
             array=self.wavefunction_data,
-            probe=self.base_probe
+            probe=self.base_probe,
+            cache_dir=self.output_dir
         )
         
         # Handle cleanup

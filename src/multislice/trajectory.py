@@ -227,34 +227,28 @@ class Trajectory:
             timestep=self.timestep
         )
 
-    def slice_timesteps(self, frame_indices: List[int]) -> 'Trajectory':
+    def slice_timesteps(self, i1: int=1, i2:int=None, ith: int=1) -> 'Trajectory':
         """
         Slice trajectory to include only specified timesteps.
 
         Args:
-            frame_indices: List of frame indices to keep
+            i1: first frame index to keep (default 0, i.e., first)
+            i2: first frame index to ignore (defaults to include last)
+            ith: used for selecting alternating frames. 2 = every-other, 3 = every 3rd etc
 
         Returns:
             New Trajectory with only the specified timesteps
         """
-        # Handle both lists and numpy arrays
-        if isinstance(frame_indices, np.ndarray):
-            if frame_indices.size == 0:
-                raise ValueError("frame_indices cannot be empty")
-        elif len(frame_indices) == 0:
-            raise ValueError("frame_indices cannot be empty")
 
-        # Validate indices
-        max_idx = max(frame_indices)
-        if max_idx >= self.n_frames:
-            raise ValueError(f"Frame index {max_idx} out of range [0, {self.n_frames-1}]")
+        if i2 is None:
+            i2=len(self.positions)
 
         return Trajectory(
             atom_types=self.atom_types,
-            positions=self.positions[frame_indices, :, :],
-            velocities=self.velocities[frame_indices, :, :],
+            positions=self.positions[i1:i2:ith, :, :],
+            velocities=self.velocities[i1:i2:ith, :, :],
             box_matrix=self.box_matrix,
-            timestep=self.timestep
+            timestep=self.timestep*ith
         )
 
     def generate_random_displacements(self,n_displacements,sigma,seed=None):
