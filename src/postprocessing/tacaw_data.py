@@ -388,16 +388,31 @@ class TACAWData(WFData):
         fig, ax = plt.subplots()
         array = np.absolute(intensities) # imshow convention: y,x. our convention: x,y
         aspect = None
+
         if isinstance(xvals,str):
-            xlabel={"kx":"kx ($\\AA^{-1}$)","ky":"ky ($\\AA^{-1}$)","x":"x ($\\AA$)","y":"y ($\\AA$)","k":"k ($\\AA^{-1}$)"}[xvals]
-            xvals={"kx":np.asarray(self.kxs),"ky":np.asarray(self.kys),"x":np.asarray(self.xs),"y":np.asarray(self.ys)}[xvals]
+            if xvals in ["kx","k"]:
+                xlabel = "kx ($\\AA^{-1}$)" ; xvals = np.asarray(self.kxs)
+            elif xvals == "ky":
+                xlabel = "ky ($\\AA^{-1}$)" ; xvals = np.asarray(self.kys)
+            elif xvals == "x":
+                xlabel = "x ($\\AA$)" ; xvals = np.asarray(self.xs)
+            elif xvals == "y":
+                xlabel = "y ($\\AA$)" ; xvals = np.asarray(self.ys)
+
         if isinstance(yvals,str):
             if yvals == "omega":
                 aspect = "auto"
-            #if yvals == "ky":
-            #    array = array.T
-            ylabel={"kx":"kx ($\\AA^{-1}$)","ky":"ky ($\\AA^{-1}$)","y":"y ($\\AA$)","x":"x ($\\AA$)","omega":"frequency (THz)"}[yvals]
-            yvals={"kx":np.asarray(self.kxs),"ky":np.asarray(self.kys),"y":np.asarray(self.ys),"x":np.asarray(self.xs),"omega":np.asarray(self.frequencies)}[yvals]
+            if yvals == "kx":
+                ylabel = "kx ($\\AA^{-1}$)" ; yvals = np.asarray(self.kxs)
+            elif yvals in ["ky","k"]:
+                ylabel = "ky ($\\AA^{-1}$)" ; yvals = np.asarray(self.kys)
+            elif yvals == "x":
+                ylabel = "x ($\\AA$)" ; yvals = np.asarray(self.xs)
+            elif yvals == "y":
+                ylabel = "y ($\\AA$)" ; yvals = np.asarray(self.ys)
+            elif yvals == "omega":
+                ylabel = "frequency (THz)" ; yvals = np.asarray(self.frequencies)
+
         extent = ( np.amin(xvals) , np.amax(xvals) , np.amin(yvals) , np.amax(yvals) )
         ax.imshow(array, cmap="inferno",extent=extent,aspect=aspect)
         ax.set_xlabel(xlabel)
