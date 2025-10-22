@@ -35,12 +35,14 @@ except ImportError:
 @dataclass
 class TACAWData(WFData):
     # inherit all attributes from parent object
-    def __init__(self, WFData, layer_index: int = None) -> object:
+    def __init__(self, WFData, layer_index: int = None, keep_complex: bool = False) -> object:
         self.__class__ = type(WFData.__class__.__name__,
                               (self.__class__, WFData.__class__),
                               {})
         self.__dict__ = WFData.__dict__
+        self.keep_complex = keep_complex
         self.fft_from_wf_data(layer_index)
+ 
 
     """
     Data structure for storing TACAW EELS results with format: probe_positions, frequency, kx, ky.
@@ -57,6 +59,7 @@ class TACAWData(WFData):
     kx: np.ndarray  # kx sampling vectors
     ky: np.ndarray  # ky sampling vectors
     intensity: np.ndarray  # Intensity array |Ψ(ω,q)|² (probe_positions, frequency, kx, ky)
+    keep_complex: bool
 
     def fft_from_wf_data(self, layer_index: int = None):
         """
@@ -73,6 +76,9 @@ class TACAWData(WFData):
         if os.path.exists(self.cache_dir / "tacaw.npy"):
             self.frequencies = np.load(self.cache_dir / "tacaw_freq.npy")
             self.intensity = np.load(self.cache_dir / "tacaw.npy")
+            if TORCH_AVAILABLE:
+                self.frequencies = xp.Tensor(self.frequencies)
+                self.intensity = xp.Tensor(self.intensity)
             return
 
         # Default to last layer if not specified
@@ -106,9 +112,15 @@ class TACAWData(WFData):
         
         # Compute intensity |Ψ(ω,q)|² from the frequency-domain wavefunction
         if TORCH_AVAILABLE and hasattr(wf_fft, 'dim'):  # Check if it's a torch tensor
-            self.intensity = torch.abs(wf_fft)**2
+            if self.keep_complex:
+                self.intensity = wf_fft
+            else:
+                self.intensity = torch.abs(wf_fft)**2
         else:
-            self.intensity = np.abs(wf_fft)**2
+            if self.keep_complex:
+                self.intensity = wf_fft
+            else:
+                self.intensity = np.abs(wf_fft)**2
 
         np.save(self.cache_dir / "tacaw_freq.npy", self.frequencies)
         np.save(self.cache_dir / "tacaw.npy", self.intensity)
@@ -188,7 +200,7 @@ class TACAWData(WFData):
 
 
 
-    def diffraction(self, probe_index: int = None) -> np.ndarray:
+    def diffraction(self, probe_index: int = None, space: str = "reciprocal") -> np.ndarray:
         """
         Extract diffraction pattern for a specific probe position by summing over all frequencies.
         
@@ -221,10 +233,13 @@ class TACAWData(WFData):
             # Convert to numpy if PyTorch tensor
             if TORCH_AVAILABLE and hasattr(diffraction_pattern, 'cpu'):
                 diffraction_pattern = diffraction_pattern.cpu().numpy()
-        
+
+        if space == "real":
+            diffraction_pattern = np.absolute(np.fft.ifft2(diffraction_pattern))    
+
         return diffraction_pattern
 
-    def spectral_diffraction(self, frequency: float, probe_index: int = None) -> np.ndarray:
+    def spectral_diffraction(self, frequency: float, probe_index: int = None, space: str = "reciprocal") -> np.ndarray:
         """
         Extract spectral diffraction pattern at a specific frequency.
 
@@ -260,6 +275,9 @@ class TACAWData(WFData):
             if TORCH_AVAILABLE and hasattr(spectral_diffraction, 'cpu'):
                 spectral_diffraction = spectral_diffraction.cpu().numpy()
         
+        if space == "real":
+            spectral_diffraction = np.absolute(np.fft.ifft2(spectral_diffraction))    
+
         return spectral_diffraction
 
     def masked_spectrum(self, mask: np.ndarray, probe_index: int = None) -> np.ndarray:
@@ -306,7 +324,7 @@ class TACAWData(WFData):
 
         return masked_spectrum
 
-    def dispersion(self, kx_path: np.ndarray, ky_path: np.ndarray, probe_index: int = None) -> np.ndarray:
+    def dispersion(self, kx_path: np.ndarray, ky_path: np.ndarray, probe_index: int = None, space: str = "reciprocal") -> np.ndarray:
         """
         Extract dispersion relation from actual TACAW intensity data.
         
@@ -319,46 +337,50 @@ class TACAWData(WFData):
             Dispersion relation array with shape (n_frequencies, n_k_points)
             Real intensity data from TACAW simulation
         """
+
+        kx=self.kxs ; ky=self.kys
+        if space == "real":
+            kx=self.xs ; ky=self.ys
+
         # Find closest indices in our kxs/kys arrays for the requested paths
         kx_indices = []
         for kx_val in kx_path:
-            idx = np.argmin(np.abs(self.kxs - kx_val))
+            idx = np.argmin(np.abs(kx - kx_val))
             kx_indices.append(idx)
         kx_indices = np.array(kx_indices)
             
         ky_indices = []
         for ky_val in ky_path:
-            idx = np.argmin(np.abs(self.kys - ky_val))
+            idx = np.argmin(np.abs(ky - ky_val))
             ky_indices.append(idx)
         ky_indices = np.array(ky_indices)
         
         # Create dispersion array
         n_frequencies = len(self.frequencies)
         n_k_points = len(kx_indices)
-        dispersion = np.zeros((n_frequencies, n_k_points))
+        dispersion = np.zeros((n_frequencies, n_k_points),dtype=complex)
         
         if probe_index is None:
-            # Average over all probe positions
+            probe_index = np.arange(len(self.probe_positions))
+
+        # loop frequencies first so we can cheaply iFFT kx,ky if we need to
+        for w in range(n_frequencies):
+            # all specified probe positions, this frequency, all kx,ky
+            w_slice = self.intensity[probe_index, w, :, :]
+            # optionally iFFT across kx,ky
+            if space == "real":
+                kwarg = {"dim":(1,2)} if TORCH_AVAILABLE else {"axes":(1,2)}
+                w_slice = xp.fft.ifft2(w_slice,**kwarg)
+            # bring to CPU
+            if TORCH_AVAILABLE and hasattr(w_slice, 'cpu'):
+                w_slice = w_slice.cpu().numpy()
+            # sum across probe positions
+            w_slice = np.mean(w_slice,axis=0)
+            # select values at positions
             for i, (kx_idx, ky_idx) in enumerate(zip(kx_indices, ky_indices)):
-                all_probe_intensities = []
-                for probe_idx in range(len(self.probe_positions)):
-                    intensity_at_k = self.intensity[probe_idx, :, kx_idx, ky_idx]
-                    if TORCH_AVAILABLE and hasattr(intensity_at_k, 'cpu'):
-                        intensity_at_k = intensity_at_k.cpu().numpy()
-                    all_probe_intensities.append(intensity_at_k)
-                dispersion[:, i] = np.mean(all_probe_intensities, axis=0)
-        else:
-            if probe_index >= len(self.probe_positions):
-                raise ValueError(f"Probe index {probe_index} out of range")
-                
-            # Extract dispersion for specific probe
-            for i, (kx_idx, ky_idx) in enumerate(zip(kx_indices, ky_indices)):
-                intensity_at_k = self.intensity[probe_index, :, kx_idx, ky_idx]
-                if TORCH_AVAILABLE and hasattr(intensity_at_k, 'cpu'):
-                    intensity_at_k = intensity_at_k.cpu().numpy()
-                dispersion[:, i] = intensity_at_k
-        
-        return dispersion
+                dispersion[w,i] = w_slice[ kx_idx, ky_idx ]
+
+        return np.absolute(dispersion)
 
     # Since there are multiple things returnable by the above functions, i'm just offering up a generic heatmap plotter function here, where you pass Z,x,y
     def plot(self,intensities,xvals,yvals,xlabel="kx ($\\AA^{-1}$)",ylabel="ky ($\\AA^{-1}$)",filename=None):
@@ -366,16 +388,31 @@ class TACAWData(WFData):
         fig, ax = plt.subplots()
         array = np.absolute(intensities) # imshow convention: y,x. our convention: x,y
         aspect = None
+
         if isinstance(xvals,str):
-            xlabel={"kx":"kx ($\\AA^{-1}$)","x":"x ($\\AA$)","k":"k ($\\AA^{-1}$)"}[xvals]
-            xvals={"kx":np.asarray(self.kxs),"x":np.asarray(self.xs)}[xvals]
+            if xvals in ["kx","k"]:
+                xlabel = "kx ($\\AA^{-1}$)" ; xvals = np.asarray(self.kxs)
+            elif xvals == "ky":
+                xlabel = "ky ($\\AA^{-1}$)" ; xvals = np.asarray(self.kys)
+            elif xvals == "x":
+                xlabel = "x ($\\AA$)" ; xvals = np.asarray(self.xs)
+            elif xvals == "y":
+                xlabel = "y ($\\AA$)" ; xvals = np.asarray(self.ys)
+
         if isinstance(yvals,str):
             if yvals == "omega":
                 aspect = "auto"
-            #if yvals == "ky":
-            #    array = array.T
-            ylabel={"ky":"ky ($\\AA^{-1}$)","y":"y ($\\AA$)","omega":"frequency (THz)"}[yvals]
-            yvals={"ky":np.asarray(self.kys),"y":np.asarray(self.ys),"omega":self.frequencies}[yvals]
+            if yvals == "kx":
+                ylabel = "kx ($\\AA^{-1}$)" ; yvals = np.asarray(self.kxs)
+            elif yvals in ["ky","k"]:
+                ylabel = "ky ($\\AA^{-1}$)" ; yvals = np.asarray(self.kys)
+            elif yvals == "x":
+                ylabel = "x ($\\AA$)" ; yvals = np.asarray(self.xs)
+            elif yvals == "y":
+                ylabel = "y ($\\AA$)" ; yvals = np.asarray(self.ys)
+            elif yvals == "omega":
+                ylabel = "frequency (THz)" ; yvals = np.asarray(self.frequencies)
+
         extent = ( np.amin(xvals) , np.amax(xvals) , np.amin(yvals) , np.amax(yvals) )
         ax.imshow(array, cmap="inferno",extent=extent,aspect=aspect)
         ax.set_xlabel(xlabel)

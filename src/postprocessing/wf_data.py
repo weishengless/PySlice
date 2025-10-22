@@ -54,7 +54,7 @@ class WFData:
     probe: Probe
     cache_dir: Path
 
-    def plot(self,filename=None,whichProbe=0,whichTimestep=0,powerscaling=0.25,extent=None,avg=False):
+    def plot(self,filename=None,whichProbe=0,whichTimestep=0,powerscaling=0.25,extent=None,avg=False,nuke_zerobeam=False):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
 
@@ -98,6 +98,8 @@ class WFData:
 
         # Transpose for imshow convention
         array = array.T  # imshow convention: y,x. our convention: x,y
+        if nuke_zerobeam:
+            array[np.argmin(np.absolute(kys_np)),np.argmin(np.absolute(kxs_np))]=0
 
         # Convert to numpy array if it's a tensor
         # Apply powerscaling to intensity (|Ψ|²)
@@ -116,8 +118,8 @@ class WFData:
             plt.show()
 
 
-    def plot_reciprocalspace(self,whichProbe=0,whichTimestep=0,extent=None,avg=False):
-        self.plot(whichProbe,whichTimestep,extent=extent,avg=avg)
+    def plot_reciprocalspace(self,whichProbe=0,whichTimestep=0,extent=None,avg=False,filename=None,powerscaling=0.25):
+        self.plot(whichProbe=whichProbe,whichTimestep=whichTimestep,extent=extent,avg=avg,filename=filename,powerscaling=powerscaling)
 
     def plot_phase(self,whichProbe=0,whichTimestep=0,extent=None,avg=False):
         """

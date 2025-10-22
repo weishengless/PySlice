@@ -53,7 +53,7 @@ tacaw.plot(Z**.1,"kx","ky",filename="outputs/figs/05_tacaw.png")
 differ(Z**.1,"outputs/tacaw-test.npy","TACAW SLICE")
 
 # OR THE DISPERSION:
-kx=np.asarray(tacaw.kxs) ; kx=kx[kx>=0] ; kx=kx[kx<=4/a] ; print(kx.shape)
+kx=np.asarray(tacaw.kxs) ; kx=kx[kx>=0] ; kx=kx[kx<=4/a] ; print("kx",kx.shape)
 dispersion = tacaw.dispersion( kx , np.zeros(len(kx))+2/b )
 tacaw.plot(dispersion**.125,kx,"omega")
 
