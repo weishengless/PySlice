@@ -2,7 +2,7 @@ import sys,os
 sys.path.insert(1,"../../")
 from src.io.loader import Loader
 from src.multislice.multislice import probe_grid
-from src.multislice.calculators import MultisliceCalculator
+from src.multislice.calculators import SEDCalculator
 from src.multislice.sed import SED
 from src.postprocessing.tacaw_data import TACAWData
 from src.postprocessing.testtools import differ
@@ -22,46 +22,41 @@ a,b=2.4907733333333337,2.1570729817355123
 trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 
 # SET UP OUT OWN RECIPROCAL SPACE GRID FOR SED
-lx,ly,lz = np.diag(trajectory.box_matrix)
-nx,ny = int(np.round(lx/a)) , int(np.round(ly/b))
-print(nx,ny)
-kxs=np.linspace(0,4*np.pi/a,nx)
-kys=np.linspace(0,4*np.pi/b,ny)
+#lx,ly,lz = np.diag(trajectory.box_matrix)
+#nx,ny = int(np.round(lx/a)) , int(np.round(ly/b))
+#print(nx,ny)
+#kxs=np.linspace(0,4*np.pi/a,nx)
+#kys=np.linspace(0,4*np.pi/b,ny)
 
-kvec = np.zeros((len(kxs),len(kys),3))
-kvec[:,:,0] += kxs[:,None]
-kvec[:,:,1] += kys[None,:]
+#kvec = np.zeros((len(kxs),len(kys),3))
+#kvec[:,:,0] += kxs[:,None]
+#kvec[:,:,1] += kys[None,:]
 
-avg = trajectory.get_mean_positions()
-disp = trajectory.get_distplacements()
-print(np.shape(avg),np.shape(disp))
+#avg = trajectory.get_mean_positions()
+#disp = trajectory.get_distplacements()
+#print(np.shape(avg),np.shape(disp))
 
 # RUN SED INSTEAD OF MULTISLICE
-Zx,ws = SED(avg,disp,kvec=kvec,v_xyz=0)
-Zy,ws = SED(avg,disp,kvec=kvec,v_xyz=1)
-Zz,ws = SED(avg,disp,kvec=kvec,v_xyz=2)
+#Zx,ws = SED(avg,disp,kvec=kvec,v_xyz=0)
+#Zy,ws = SED(avg,disp,kvec=kvec,v_xyz=1)
+#Zz,ws = SED(avg,disp,kvec=kvec,v_xyz=2)
 
-ws/=dt
+#ws/=dt
+
+calculator=SEDCalculator()
+calculator.setup(trajectory,abc=[a,b,1])
+calculator.run()
+
+#Zx=calculator.Zx
+#Zy=calculator.Zy
+#Zz=calculator.Zz
+#ws=calculator.ws
+#kxs=calculator.kxs
+#kys=calculator.kys
 
 #Zx=np.reshape(Zx,(len(ws),nx,ny))
 #Zy=np.reshape(Zy,(len(ws),nx,ny))
 #Zz=np.reshape(Zz,(len(ws),nx,ny))
 
-import matplotlib.pyplot as plt
-
-fig, ax = plt.subplots()
-extent = ( np.amin(kxs) , np.amax(kxs) , np.amin(ws) , np.amax(ws) )
-ax.imshow((Zx[::-1,:,0]+Zy[::-1,:,0]+Zz[::-1,:,0])**.25, cmap="inferno", extent=extent,aspect="auto")
-plt.show()
-
-
-i=np.argmin(np.absolute(ws-30))
-extent = ( np.amin(kxs) , np.amax(kxs) , np.amin(kys) , np.amax(kys) )
-
-fig, ax = plt.subplots()
-ax.imshow(np.sqrt(Zx[i,:,:]+Zy[i,:,:]+Zz[i,:,:]).T, cmap="inferno", extent=extent)
-ax.set_xlabel("kx ($\\AA^{-1}$)")
-ax.set_ylabel("ky ($\\AA^{-1}$)")
-
-plt.show()
+calculator.plot(30)
 

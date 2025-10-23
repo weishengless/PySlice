@@ -33,6 +33,7 @@ from .potentials import gridFromTrajectory,Potential
 from .multislice import Probe,Propagate,create_batched_probes
 from .trajectory import Trajectory
 from ..postprocessing.wf_data import WFData
+from .sed import SED
 
 logger = logging.getLogger(__name__)
 
@@ -415,5 +416,64 @@ def _process_frame_worker_torch(args):
     #    
     #    np.save(cache_file, frame_data)
     #    return frame_idx, frame_data, False
+
+
+class SEDCalculator:
+    def setup(self, trajectory: Trajectory, axis:int = 2, abc:list = [1,1,1]):
+        """
+        Set up Spectral Energy Density calculation
+        
+        Args:
+            trajectory: Input trajectory data
+        """
+
+        self.trajectory = trajectory
+        self.axis = axis
+        self.a,self.b,self.c = abc
+
+        # Set up spatial grids
+        lxyz = list( np.diag(trajectory.box_matrix) )
+        nxyz = [ int(np.round(l/d)) for l,d in zip(lxyz,abc) ]
+		
+        del lxyz[axis]
+        del nxyz[axis]
+        del abc[axis]
+
+        self.kxs=np.linspace(0,2*np.pi/abc[0],nxyz[0])
+        self.kys=np.linspace(0,2*np.pi/abc[1],nxyz[1])
+
+        self.kvec = np.zeros((len(self.kxs),len(self.kys),3))
+        self.kvec[:,:,0] += self.kxs[:,None]
+        self.kvec[:,:,1] += self.kys[None,:]
+
+
+    def run(self) -> WFData:
+        avg = self.trajectory.get_mean_positions()
+        disp = self.trajectory.get_distplacements()
+
+        # RUN SED INSTEAD OF MULTISLICE
+        self.Zx,ws = SED(avg,disp,kvec=self.kvec,v_xyz=0)
+        self.Zy,ws = SED(avg,disp,kvec=self.kvec,v_xyz=1)
+        self.Zz,ws = SED(avg,disp,kvec=self.kvec,v_xyz=2)
+
+        self.ws = ws/self.trajectory.timestep
+
+    def plot(self,w): # TODO MAYBE "RUN" SHOULD RETURN A TACAW OBJECT SO WE CAN REUSE TACAW PLOTTING/POSTPROCESSING FUNCTIONALITY??
+        import matplotlib.pyplot as plt
+
+        #fig, ax = plt.subplots()
+        #extent = ( np.amin(kxs) , np.amax(kxs) , np.amin(ws) , np.amax(ws) )
+        #ax.imshow((Zx[::-1,:,0]+Zy[::-1,:,0]+Zz[::-1,:,0])**.25, cmap="inferno", extent=extent,aspect="auto")
+        #plt.show()
+
+        i=np.argmin(np.absolute(self.ws-w))
+        extent = ( np.amin(self.kxs) , np.amax(self.kxs) , np.amin(self.kys) , np.amax(self.kys) )
+
+        fig, ax = plt.subplots()
+        ax.imshow(np.sqrt(self.Zx[i,:,:]+self.Zy[i,:,:]+self.Zz[i,:,:]).T, cmap="inferno", extent=extent)
+        ax.set_xlabel("kx ($\\AA^{-1}$)")
+        ax.set_ylabel("ky ($\\AA^{-1}$)")
+
+        plt.show()
 
 
