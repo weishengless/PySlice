@@ -100,10 +100,10 @@ def SED(avg,displacements,kvec,v_xyz=0,bs=''):
 
 	# Φ(k,ω) = Σb | ∫ Σn u°(n,b,t) exp( i k r̄(n,0) ) exp( i ω t ) dt |² or | ℱ[ Σn u°(n,b,t) exp( i k r̄(n,0) ) |²
 	# exp( i k r̄(n,0) ) term:
-	expo=np.exp(1j*np.einsum('ax,kx->ak',avg[bs,:],kvec[:,:])) # indices: (a)tom, (x)/y/z, (k) point
+	expo=np.exp(1j*np.einsum('az,xyz->axy',avg[bs,:],kvec[:,:])) # indices: (a)tom, (x)/y/z, (k) point
 	# u°(n,b,t) exp( i k r̄(n,0) ) term:
-	integrands=np.einsum('ta,ak->tk',us,expo,optimize=True) # indices: (t)ime, (a)toms, (k) point
-	Zs=np.fft.fft(integrands,axis=0)[:nt2,:]
+	integrands=np.einsum('ta,axy->txy',us,expo,optimize=True) # indices: (t)ime, (a)toms, (k) point
+	Zs=np.fft.fft(integrands,axis=0)[:nt2,:,:]
 	#if not keepComplex:
 	Zs=np.absolute(Zs)**2
 

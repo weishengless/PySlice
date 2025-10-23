@@ -28,11 +28,9 @@ print(nx,ny)
 kxs=np.linspace(0,np.pi/a,nx)
 kys=np.linspace(0,np.pi/b,ny)
 
-kvec = []
-for kx in kxs:
-	for ky in kys:
-		kvec.append([kx,ky,0])
-kvec = np.asarray(kvec)
+kvec = np.zeros((len(kxs),len(kys),3))
+kvec[:,:,0] += kxs[:,None]
+kvec[:,:,1] += kys[None,:]
 
 avg = trajectory.get_mean_positions()
 disp = trajectory.get_distplacements()
@@ -42,14 +40,14 @@ Zx,ws = SED(avg,disp,kvec=kvec,v_xyz=0)
 Zy,ws = SED(avg,disp,kvec=kvec,v_xyz=1)
 Zz,ws = SED(avg,disp,kvec=kvec,v_xyz=2)
 
-Zx=np.reshape(Zx,(len(ws),nx,ny))
-Zy=np.reshape(Zy,(len(ws),nx,ny))
-Zz=np.reshape(Zz,(len(ws),nx,ny))
+#Zx=np.reshape(Zx,(len(ws),nx,ny))
+#Zy=np.reshape(Zy,(len(ws),nx,ny))
+#Zz=np.reshape(Zz,(len(ws),nx,ny))
 
 import matplotlib.pyplot as plt
 
 fig, ax = plt.subplots()
-ax.imshow(Zx[:,:,0]+Zy[:,:,0]+Zz[:,:,0], cmap="inferno")
+ax.imshow(Zx[:,:,0]+Zy[:,:,1]+Zz[:,:,2], cmap="inferno")
 plt.show()
 
 
