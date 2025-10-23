@@ -54,7 +54,7 @@ class WFData:
     probe: Probe
     cache_dir: Path
 
-    def plot(self,filename=None,whichProbe=0,whichTimestep=0,powerscaling=0.25,extent=None,avg=False,nuke_zerobeam=False):
+    def plot_reciprocal(self,filename=None,whichProbe=0,whichTimestep=0,powerscaling=0.25,extent=None,avg=False,nuke_zerobeam=False):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
 
@@ -117,11 +117,9 @@ class WFData:
         else:
             plt.show()
 
+    plot = plot_reciprocal
 
-    def plot_reciprocalspace(self,whichProbe=0,whichTimestep=0,extent=None,avg=False,filename=None,powerscaling=0.25):
-        self.plot(whichProbe=whichProbe,whichTimestep=whichTimestep,extent=extent,avg=avg,filename=filename,powerscaling=powerscaling)
-
-    def plot_phase(self,whichProbe=0,whichTimestep=0,extent=None,avg=False):
+    def plot_phase(self,filename=None,whichProbe=0,whichTimestep=0,extent=None,avg=False):
         """
         Plot the phase of the wavefunction in real space.
 
@@ -183,7 +181,11 @@ class WFData:
         ax.set_title('Phase in real space')
         ax.set_xlabel('x (Å)')
         ax.set_ylabel('y (Å)')
-        plt.show()
+
+        if filename is not None:
+            plt.savefig(filename)
+        else:
+            plt.show()
 
     def plot_realspace(self,whichProbe=0,whichTimestep=0,extent=None,avg=False):
         import matplotlib.pyplot as plt

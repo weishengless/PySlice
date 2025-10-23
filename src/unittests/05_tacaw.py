@@ -31,6 +31,8 @@ calculator=MultisliceCalculator()
 calculator.setup(trajectory,aperture=0,voltage_eV=100e3,sampling=.1,slice_thickness=.5)
 exitwaves = calculator.run()
 
+exitwaves.plot(nuke_zerobeam=True,powerscaling=.125)
+
 tacaw = TACAWData(exitwaves)
 
 

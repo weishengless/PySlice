@@ -61,7 +61,7 @@ tacaw.plot(Z**.125,"x","y")#,filename="midgley_30THz.png")
 
 # PLOT THE DISPERSION
 xs=np.asarray(tacaw.xs) ; xm = np.mean(xs) ; xs=xs[xs>=xm] ; xs=xs[xs<=xm+4*dx]
-ys=np.asarray(tacaw.xs) ; ym = np.mean(ys) ; ys = np.zeros(len(xs))+ym+dy
+ys=np.asarray(tacaw.ys) ; ym = np.mean(ys) ; ys = np.zeros(len(xs))+ym+dy
 dispersion = tacaw.dispersion( xs , ys , space="real")
 tacaw.plot(dispersion**.125,xs,"omega")#,filename="midgley_dispersion.png")
 
