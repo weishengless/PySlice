@@ -25,8 +25,8 @@ trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 lx,ly,lz = np.diag(trajectory.box_matrix)
 nx,ny = int(np.round(lx/a)) , int(np.round(ly/b))
 print(nx,ny)
-kxs=np.linspace(0,np.pi/a,nx)
-kys=np.linspace(0,np.pi/b,ny)
+kxs=np.linspace(0,4*np.pi/a,nx)
+kys=np.linspace(0,4*np.pi/b,ny)
 
 kvec = np.zeros((len(kxs),len(kys),3))
 kvec[:,:,0] += kxs[:,None]
@@ -34,11 +34,14 @@ kvec[:,:,1] += kys[None,:]
 
 avg = trajectory.get_mean_positions()
 disp = trajectory.get_distplacements()
+print(np.shape(avg),np.shape(disp))
 
 # RUN SED INSTEAD OF MULTISLICE
 Zx,ws = SED(avg,disp,kvec=kvec,v_xyz=0)
 Zy,ws = SED(avg,disp,kvec=kvec,v_xyz=1)
 Zz,ws = SED(avg,disp,kvec=kvec,v_xyz=2)
+
+ws/=dt
 
 #Zx=np.reshape(Zx,(len(ws),nx,ny))
 #Zy=np.reshape(Zy,(len(ws),nx,ny))
@@ -47,7 +50,8 @@ Zz,ws = SED(avg,disp,kvec=kvec,v_xyz=2)
 import matplotlib.pyplot as plt
 
 fig, ax = plt.subplots()
-ax.imshow(Zx[:,:,0]+Zy[:,:,1]+Zz[:,:,2], cmap="inferno")
+extent = ( np.amin(kxs) , np.amax(kxs) , np.amin(ws) , np.amax(ws) )
+ax.imshow((Zx[::-1,:,0]+Zy[::-1,:,0]+Zz[::-1,:,0])**.25, cmap="inferno", extent=extent,aspect="auto")
 plt.show()
 
 

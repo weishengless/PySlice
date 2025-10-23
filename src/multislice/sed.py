@@ -1,7 +1,7 @@
 # Spectral Energy Density: phonon dispersions: borrowed from pySED: https://github.com/tpchuckles/pySED
 # avg - average positions [a,xyz]
 # displacements - time-dependent atom displacements [t,a,xyz]
-# kvec - a list of length-3 vectors for each k point
+# kvec - an NxM grid of length-3 vectors for each k point
 # v_xyz - 0,1,2 indicating if we'll track displacements in x,y or z (this is your vibration polarization direction). vector also allowed: e.g. [1,1,0] for diagonal
 # bs - optional: should be a list of atom indices to include. this allows the caller to sum over crystal cell coordinates (see discussion on Σb below)
 
@@ -68,7 +68,7 @@ def SED(avg,displacements,kvec,v_xyz=0,bs=''):
 
 	# project displacements onto vector
 	if isinstance(v_xyz,(int,float,np.integer)):
-		us=vdisplacements[:,bs,v_xyz] # t,a,xyz --> t,a
+		us=displacements[:,bs,v_xyz] # t,a,xyz --> t,a
 	else: 
 		us=np.einsum("tax,x->ta",displacements[:,bs,:],v_xyz)	# indices: (t)ime, (a)tom index, (x)/y/z direction
 	
@@ -100,7 +100,7 @@ def SED(avg,displacements,kvec,v_xyz=0,bs=''):
 
 	# Φ(k,ω) = Σb | ∫ Σn u°(n,b,t) exp( i k r̄(n,0) ) exp( i ω t ) dt |² or | ℱ[ Σn u°(n,b,t) exp( i k r̄(n,0) ) |²
 	# exp( i k r̄(n,0) ) term:
-	expo=np.exp(1j*np.einsum('az,xyz->axy',avg[bs,:],kvec[:,:])) # indices: (a)tom, (x)/y/z, (k) point
+	expo=np.exp(1j*np.einsum('aj,xyj->axy',avg[bs,:],kvec[:,:,:])) # indices: (a)tom, (x)/y/z, (k) point
 	# u°(n,b,t) exp( i k r̄(n,0) ) term:
 	integrands=np.einsum('ta,axy->txy',us,expo,optimize=True) # indices: (t)ime, (a)toms, (k) point
 	Zs=np.fft.fft(integrands,axis=0)[:nt2,:,:]
