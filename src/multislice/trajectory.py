@@ -54,11 +54,14 @@ class Trajectory:
         """Extract box tilt angles from the box matrix off-diagonal elements."""
         return np.array([self.box_matrix[0, 1], self.box_matrix[0, 2], self.box_matrix[1, 2]])
 
-    def get_mean_positions(self) -> np.ndarray:
+    def get_mean_positions(self) -> np.ndarray: # TODO: THIS DOES NOT INCLUDE WRAPPING (what if an atom drifts out of the bbox and comes back in through PBC?)
         """Calculate the mean position for each atom over all frames."""
         if self.n_frames == 0:
             return np.empty((0, 3), dtype=self.positions.dtype)
         return np.mean(self.positions, axis=0)
+ 
+    def get_distplacements(self) -> np.ndarray:
+        return self.positions[:,:,:]-self.get_mean_positions()[None,:,:]
 
     def tile_positions(self, repeats: Tuple[int, int, int], trajectories:list = None) -> 'Trajectory':
         """
