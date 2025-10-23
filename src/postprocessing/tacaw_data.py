@@ -32,6 +32,7 @@ except ImportError:
     complex_dtype = np.complex128
     float_dtype = np.float64
 
+
 @dataclass
 class TACAWData(WFData):
     # inherit all attributes from parent object
@@ -422,6 +423,35 @@ class TACAWData(WFData):
             plt.savefig(filename)
         else:
             plt.show()
+
+@dataclass
+class SEDData:
+    # inherit all attributes from parent object
+    def __init__(self, WFData, layer_index: int = None, keep_complex: bool = False) -> object:
+        self.__class__ = type(WFData.__class__.__name__,
+                              (self.__class__, WFData.__class__),
+                              {})
+        self.__dict__ = WFData.__dict__
+        self.keep_complex = keep_complex
+        self.fft_from_wf_data(layer_index)
+ 
+
+    """
+    Data structure for storing TACAW EELS results with format: probe_positions, frequency, kx, ky.
+
+    Attributes:
+        probe_positions: List of (x,y) probe positions in Angstroms.
+        frequency: Frequencies in THz.
+        kx: kx sampling vectors (e.g., in Å⁻¹).
+        ky: ky sampling vectors (e.g., in Å⁻¹).
+        intensity: Intensity array |Ψ(ω,q)|² (probe_positions, frequency, kx, ky).
+    """
+    probe_positions: List[Tuple[float, float]]
+    frequency: np.ndarray  # frequencies in THz
+    kx: np.ndarray  # kx sampling vectors
+    ky: np.ndarray  # ky sampling vectors
+    intensity: np.ndarray  # Intensity array |Ψ(ω,q)|² (probe_positions, frequency, kx, ky)
+    keep_complex: bool
 
 
 # Example usage (for testing within this file)

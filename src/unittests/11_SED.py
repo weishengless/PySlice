@@ -44,7 +44,7 @@ trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 #ws/=dt
 
 calculator=SEDCalculator()
-calculator.setup(trajectory,abc=[a,b,1])
+calculator.setup(trajectory,abc=[a/4,b/2,1])
 calculator.run()
 
 #Zx=calculator.Zx
