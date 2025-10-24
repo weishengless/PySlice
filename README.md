@@ -6,9 +6,7 @@ PySlice is a Python package for simulating and analyzing multslice simulations f
 
 For now, please see PySlice/src/unittests for a series of basic examples. 
 
-## Generating a basic TEM frozen-phonon diffraction pattern should be as simple as:
-
-## Generating a simple parallel-beam (TEM) diffraction pattern:
+## Generating a basic TEM frozen-phonon diffraction pattern:
 ```
 trajectory=Loader(dump,atom_mapping=types).load() # Load your MD trajectory for frozen phonons, or load in a cif/xyz/etc file and "trajectory = trajectory.generate_random_displacements(N)"
 calculator=MultisliceCalculator()
@@ -17,7 +15,7 @@ exitwaves = calculator.run() # exitwaves object contains reciprocal-space exit w
 exitwaves.plot(powerscaling=.125) # sums across frozen-phonon configurations to show the diffraction pattern
 ```
 
-## Generating a HAADF image should be as simple as:
+## Generating a HAADF image:
 ```
 trajectory = Loader(dump,atom_mapping=types).load() # Load your MD trajectory for frozen phonons, or load in a cif/xyz/etc file and "trajectory = trajectory.generate_random_displacements(N)"
 xy = probe_grid([a,3*a],[b,3*b],14,16)              # pick your HAADF field-of-view
@@ -29,7 +27,7 @@ ary = haadf.calculateADF(preview=True)
 haadf.plot()
 ```
 
-## Generating a vibrational EELS dispersion (via the TACAW method: [DOI 10.1103/PhysRevLett.134.036402](https://doi.org/10.1103/PhysRevLett.134.036402)) should be as simple as:
+## Generating a vibrational EELS dispersion (via the TACAW method: [DOI 10.1103/PhysRevLett.134.036402](https://doi.org/10.1103/PhysRevLett.134.036402)):
 ```
 trajectory = Loader(dump,timestep=dt,atom_mapping=types).load() # Load your MD trajectory, including a timestep duration since we will do a Fourier transform in time later
 calculator = MultisliceCalculator()
@@ -42,10 +40,42 @@ dispersion = tacaw.dispersion( kx , ky )      # returns a phonon dispersion: fre
 tacaw.plot(dispersion**.125,kx,"omega")
 ```
 
+# Installation
 
-## System Architecture
+## Prerequisites
+- Python 3.12+
+- Virtual environment recommended
 
-### Data Flow Pipeline
+## Install Dependencies
+
+**Using pip:**
+```bash
+# Install core requirements
+pip install -r requirements.txt
+
+# Special installation for OVITO
+pip install ovito --find-links https://www.ovito.org/pip/
+```
+
+**Using uv (recommended for faster installs):**
+```bash
+# Install dependencies directly
+uv sync
+```
+
+## Key Dependencies
+- **`numpy>=1.20.0`**: Scientific computing (core)
+- **`torch`**: GPU acceleration (optional but recommended)
+- **`ovito>=3.8.0`**: LAMMPS trajectory loading
+- **`matplotlib>=3.5.0`**: Visualization
+- **`ipywidgets`**: Interactive visualization in Jupyter
+
+
+
+
+# System Architecture
+
+## Data Flow Pipeline
 
 ```
 LAMMPS Trajectory → TrajectoryLoader → Trajectory Object
@@ -154,44 +184,20 @@ Propagate(probe, potential)
 create_batched_probes(base_probe, positions)
 ```
 
-## Installation
+### Caching Strategy
+1. **Trajectory Cache**: `.npy` files avoid repeated OVITO parsing
+2. **Frame Cache**: `psi_data/` stores computed wavefunctions
+3. **Automatic cache key generation**: Based on simulation parameters
 
-### Prerequisites
-- Python 3.12+
-- Virtual environment recommended
 
-### Install Dependencies
+# Advanced Usage
 
-**Using pip:**
-```bash
-# Install core requirements
-pip install -r requirements.txt
-
-# Special installation for OVITO
-pip install ovito --find-links https://www.ovito.org/pip/
-```
-
-**Using uv (recommended for faster installs):**
-```bash
-# Install dependencies directly
-uv sync
-```
-
-### Key Dependencies
-- **`numpy>=1.20.0`**: Scientific computing (core)
-- **`torch`**: GPU acceleration (optional but recommended)
-- **`ovito>=3.8.0`**: LAMMPS trajectory loading
-- **`matplotlib>=3.5.0`**: Visualization
-- **`ipywidgets`**: Interactive visualization in Jupyter
-
-## Usage
-
-### Quick Start
+## Quick Start
 ```bash
 python main.py
 ```
 
-### Basic Workflow
+## Basic Workflow
 
 ```python
 from src.io.loader import TrajectoryLoader
@@ -224,7 +230,7 @@ spectrum = tacaw_data.spectrum(probe_index=None)
 diffraction = tacaw_data.diffraction(probe_index=None)
 ```
 
-### STEM Imaging with Multiple Probes
+## STEM Imaging with Multiple Probes
 
 ```python
 from src.multislice.multislice import probe_grid
@@ -254,7 +260,7 @@ spec_img = tacaw_data.spectrum_image(frequency=35.0)  # THz
 spec_img_2d = spec_img.reshape(30, 30)  # Reshape to grid
 ```
 
-### Phonon Dispersion Analysis
+## Phonon Dispersion Analysis
 
 ```python
 # Extract dispersion along specific k-path
@@ -272,7 +278,7 @@ plt.xlabel('kx (Å⁻¹)')
 plt.ylabel('Frequency (THz)')
 ```
 
-### Interactive Visualization (Jupyter)
+## Interactive Visualization (Jupyter)
 
 ```python
 from ipywidgets import interact, IntSlider
@@ -293,23 +299,18 @@ def tacaw_viewer(tacaw):
 tacaw_viewer(tacaw_data)
 ```
 
-### Caching Strategy
-1. **Trajectory Cache**: `.npy` files avoid repeated OVITO parsing
-2. **Frame Cache**: `psi_data/` stores computed wavefunctions
-3. **Automatic cache key generation**: Based on simulation parameters
-
-### Performance Tips
+## Performance Tips
 - Use PyTorch backend for GPU acceleration when available
 - Process trajectories in batches for memory efficiency
 
-## API Reference
+# API Reference
 
-### Core Classes
+## Core Classes
 - `TrajectoryLoader(filename, timestep, atom_mapping=None)`
 - `MultisliceCalculator()` - Unified calculator with auto backend selection
 - `TACAWData(wfdata)` - Constructor takes WFData, performs FFT automatically
 
-### Analysis Methods (all support probe_index=None for averaging)
+## Analysis Methods (all support probe_index=None for averaging)
 - `TACAWData.spectrum(probe_index=None) → np.ndarray`
 - `TACAWData.diffraction(probe_index=None) → np.ndarray`
 - `TACAWData.spectral_diffraction(frequency, probe_index=None) → np.ndarray`
@@ -317,7 +318,7 @@ tacaw_viewer(tacaw_data)
 - `TACAWData.dispersion(kx_path, ky_path, probe_index=None) → np.ndarray`
 - `TACAWData.masked_spectrum(mask, probe_index=None) → np.ndarray`
 
-### Helper Functions
+## Helper Functions
 - `probe_grid(x_range, y_range, nx, ny)` - Generate STEM probe positions
 - `gridFromTrajectory(trajectory, sampling, slice_thickness)` - Setup spatial grids
 
