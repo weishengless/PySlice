@@ -2,6 +2,47 @@
 
 PySlice is a Python package for simulating and analyzing multslice simulations from molecular dynamics trajectories. It implements the **TACAW method** to convert time-domain electron scattering data into frequency-domain spectra, enabling the accurate simulation of vibrational electron energy loss spectroscopy.
 
+# Usage
+
+For now, please see PySlice/src/unittests for a series of basic examples. 
+
+## Generating a basic TEM frozen-phonon diffraction pattern should be as simple as:
+
+## Generating a simple parallel-beam (TEM) diffraction pattern:
+```
+trajectory=Loader(dump,atom_mapping=types).load() # Load your MD trajectory for frozen phonons, or load in a cif/xyz/etc file and "trajectory = trajectory.generate_random_displacements(N)"
+calculator=MultisliceCalculator()
+calculator.setup(trajectory,aperture=0,voltage_eV=100e3,sampling=.1,slice_thickness=.5) # specify beam and multislice parameters: convergence angle, energy, and spatial sampling
+exitwaves = calculator.run() # exitwaves object contains reciprocal-space exit wave for each probe position 
+exitwaves.plot(powerscaling=.125) # sums across frozen-phonon configurations to show the diffraction pattern
+```
+
+## Generating a HAADF image should be as simple as:
+```
+trajectory = Loader(dump,atom_mapping=types).load() # Load your MD trajectory for frozen phonons, or load in a cif/xyz/etc file and "trajectory = trajectory.generate_random_displacements(N)"
+xy = probe_grid([a,3*a],[b,3*b],14,16)              # pick your HAADF field-of-view
+calculator = MultisliceCalculator()                 # calculator object will handle the multislice calculation
+calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_positions=xy)
+exitwaves = calculator.run()                      # exitwaves object contains reciprocal-space exit wave for each probe position 
+haadf = HAADFData(exitwaves)                        # ADF calculator sums over collection angles
+ary = haadf.calculateADF(preview=True)
+haadf.plot()
+```
+
+## Generating a vibrational EELS dispersion (via the TACAW method: [DOI 10.1103/PhysRevLett.134.036402](https://doi.org/10.1103/PhysRevLett.134.036402)) should be as simple as:
+```
+trajectory = Loader(dump,timestep=dt,atom_mapping=types).load() # Load your MD trajectory, including a timestep duration since we will do a Fourier transform in time later
+calculator = MultisliceCalculator()
+calculator.setup(trajectory,aperture=0,voltage_eV=100e3,sampling=.1,slice_thickness=.5)
+exitwaves = calculator.run()
+tacaw = TACAWData(exitwaves)                      # TACAW object performs the temporal FFT, and stores the data cube (frequency, kx, ky)
+kx = np.asarray(tacaw.kxs) ; kx=kx[kx>=0] ; kx=kx[kx<=4/a] # define a path in reciprocal space
+ky = np.zeros(len(kx))+2/b
+dispersion = tacaw.dispersion( kx , ky )      # returns a phonon dispersion: frequency as a function of position in reciprocal space
+tacaw.plot(dispersion**.125,kx,"omega")
+```
+
+
 ## System Architecture
 
 ### Data Flow Pipeline
