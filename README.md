@@ -11,7 +11,7 @@ For now, please see PySlice/src/unittests for a series of basic examples.
 trajectory=Loader(dump,atom_mapping=types).load()   # Load your MD trajectory for frozen phonons, or load in a cif/xyz/etc file and "trajectory = trajectory.generate_random_displacements(N)"
 calculator=MultisliceCalculator()
 calculator.setup(trajectory,aperture=0,voltage_eV=100e3,sampling=.1,slice_thickness=.5) # specify beam and multislice parameters: convergence angle, energy, and spatial sampling
-exitwaves = calculator.run()                        # exitwaves object contains reciprocal-space exit wave for each probe position 
+exitwaves = calculator.run()                        # exitwaves object contains reciprocal-space exit wave for each atomic configuration
 exitwaves.plot(powerscaling=.125)                   # sums across frozen-phonon configurations to show the diffraction pattern
 ```
 
@@ -21,7 +21,7 @@ trajectory = Loader(dump,atom_mapping=types).load() # Load your MD trajectory fo
 xy = probe_grid([a,3*a],[b,3*b],14,16)              # pick your HAADF field-of-view
 calculator = MultisliceCalculator()                 # calculator object will handle the multislice calculation
 calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_positions=xy)
-exitwaves = calculator.run()                        # exitwaves object contains reciprocal-space exit wave for each probe position 
+exitwaves = calculator.run()                        # exitwaves object contains reciprocal-space exit wave for each probe position for each atomic configuration
 haadf = HAADFData(exitwaves)                        # ADF calculator sums over collection angles
 ary = haadf.calculateADF(preview=True)
 haadf.plot()
@@ -300,7 +300,7 @@ tacaw_viewer(tacaw_data)
 ```
 
 ## Performance Tips
-- Use PyTorch backend for GPU acceleration when available
+- Only numpy is required, but PyTorch enables GPU acceleration when available, and PyTorch is still faster even on CPU
 - Process trajectories in batches for memory efficiency
 
 # API Reference
