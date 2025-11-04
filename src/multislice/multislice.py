@@ -216,6 +216,36 @@ class Probe:
         #if dz<0:
         #   self.array = xp.fft.ifft2( xp.fft.fft2( self.array ) / P )
 
+    # See Kirkland Eq 2.10: 
+    # χ(k,ϕ) = π/2 Cs λ³ k⁴ - π Δf λ k²
+    # + π fa2 λ k² sin(2*(ϕ-ϕa2)) + 2π/3 fa3 λ² k³ sin(3*(ϕ-ϕa3)) 
+    # + 2π/3 fc3 λ² k³ sin(ϕ-ϕc3)
+    # where fa is astig, fc is coma, with orientations ϕa or ϕc
+    # or comparing to: https://abtem.readthedocs.io/en/latest/user_guide/walkthrough/contrast_transfer_function.html
+    # χ(k,ϕ) = π/2/λ 1/(n+1) C ( k λ )^(c+1) cos(m*(ϕ-ϕa))
+    # where Kirkland 
+    def aberrate(self,aberrations): # aberrations should be a dict of Cnm following https://abtem.readthedocs.io/en/latest/user_guide/walkthrough/contrast_transfer_function.html
+        dPhi = xp.zeros(self.array.shape)
+        ks = xp.sqrt( self.kxs[:,None]**2 + self.kys[None,:]**2 )
+        theta = xp.atan2( self.kys[None,:] , self.kxs[:,None] )
+        for k in aberrations.keys():
+            n,m = int(k[1]),int(k[2]) # C03 --> 0,3
+            C = aberrations[k] ; phi0 = 0
+            if isinstance(C,list):
+                C,phi0 = C
+            dPhi += 2*xp.pi/self.wavelength * \
+                (1/(n+1)) * C * ( ks * self.wavelength ) ** (n+1) * \
+                np.cos( m * (theta-phi0) )
+		
+        # recall, in __init__, we created the real-space array via:
+        # self.array = xp.fft.ifftshift(xp.fft.ifft2(reciprocal))
+        # APPLY AT APERTURE PLANE
+        reciprocal = xp.fft.fft2(xp.fft.fftshift(self.array))
+        reciprocal *= xp.exp(-1j * dPhi)
+        self.array = xp.fft.ifftshift(xp.fft.ifft2(reciprocal))
+        # OR APPLY IN REAL SPACE
+        #self.array *= xp.fft.ifftshift(xp.fft.ifft2(dPhi))
+
 
 def probe_grid(xlims,ylims,n,m):
 	x,y=np.meshgrid(np.linspace(*xlims,n),np.linspace(*ylims,m))
