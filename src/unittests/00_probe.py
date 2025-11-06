@@ -11,7 +11,7 @@ ys=np.linspace(0,49,491)
 mrads=[1,3,5,15,30]
 ary=np.zeros((5,501,491),dtype=complex)
 for i,mrad in enumerate(mrads):
-	probe=Probe(xs,ys,mrad=mrad,eV=100e3)
+	probe=Probe(xs,ys,mrad=mrad,eV=100e3,preview=False,gaussianVOA=0)
 	probe.plot("outputs/figs/00_probe_"+str(i)+".png")
 	if hasattr(probe, 'to_cpu'):
 		ary[i] = probe.to_cpu()

@@ -49,7 +49,7 @@ class Probe:
     Significant speedup for large grid sizes through GPU-accelerated FFT operations.
     """
     
-    def __init__(self, xs, ys, mrad, eV, array=None, device=None):
+    def __init__(self, xs, ys, mrad, eV, array=None, device=None, gaussianVOA=0, preview=False):
         """
         Initialize GPU-accelerated probe wavefunction.
         
@@ -125,9 +125,22 @@ class Probe:
             kx_grid, ky_grid = xp.meshgrid(self.kxs, self.kys, indexing='ij')
             radii = xp.sqrt(kx_grid**2 + ky_grid**2)
             
-            mask = radii < radius
-            reciprocal[mask] = 1.0
+            if gaussianVOA == 0:
+                mask = radii < radius
+                reciprocal[mask] = 1.0
+            else:
+                from scipy.special import erf
+                reciprocal = 1-erf((radii-radius)/(gaussianVOA*radius))
             
+            if preview:
+                import matplotlib.pyplot as plt
+                fig, ax = plt.subplots() ; print(radius)
+                extent = (xp.min(self.kxs), xp.max(self.kxs), xp.min(self.kys), xp.max(self.kys))
+                ax.imshow(xp.fft.fftshift(reciprocal.T), cmap="inferno",extent=extent)
+                ax.set_xlabel("kx ($\\AA^{-1}$)")
+                ax.set_ylabel("ky ($\\AA^{-1}$)")
+                plt.show()
+
             self.array = xp.fft.ifftshift(xp.fft.ifft2(reciprocal))
         
         #self.array_numpy = self.array.cpu().numpy()

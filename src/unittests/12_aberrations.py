@@ -12,7 +12,7 @@ import os,shutil
 # PROBE
 xs=np.linspace(0,70,701)
 ys=np.linspace(0,69,691)
-probe=Probe(xs,ys,mrad=30,eV=100e3)
+probe=Probe(xs,ys,mrad=30,eV=100e3,gaussianVOA=.1)
 # does it matter whether you aberrate the focused or defocused probe? i don't think so??
 
 s=.02 ; l=probe.wavelength
