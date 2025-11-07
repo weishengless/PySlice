@@ -65,12 +65,10 @@ uv sync
 
 ## Key Dependencies
 - **`numpy>=1.20.0`**: Scientific computing (core)
-- **`torch`**: GPU acceleration (optional but recommended)
 - **`ovito>=3.8.0`**: LAMMPS trajectory loading
 - **`matplotlib>=3.5.0`**: Visualization
 - **`ipywidgets`**: Interactive visualization in Jupyter
-
-
+- **`torch`**: GPU acceleration (optional but recommended)
 
 
 # System Architecture
