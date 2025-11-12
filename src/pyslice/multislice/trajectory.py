@@ -254,6 +254,28 @@ class Trajectory:
             timestep=self.timestep*ith
         )
 
+    def select_timesteps(self, indices: int) -> 'Trajectory':
+        """
+        Select specified timesteps.
+
+        Args:
+            indices:   indices of timesteps to be selected
+
+        Returns:
+            New Trajectory with only the specified timesteps
+        """
+
+        if indices is None:
+            indices=slice(0, len(self.positions), 1)
+
+        return Trajectory(
+            atom_types=self.atom_types,
+            positions=self.positions[indices, :, :],
+            velocities=self.velocities[indices, :, :],
+            box_matrix=self.box_matrix,
+            timestep=self.timestep*ith
+        )
+
     def generate_random_displacements(self,n_displacements,sigma,seed=None):
         na=len(self.positions[0])
         if seed is not None:
