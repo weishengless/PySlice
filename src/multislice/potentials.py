@@ -321,6 +321,7 @@ class Potential:
                 atomsy = slice_positions[:, self.inplane_axis2]
                 
                 # Compute structure factors - match NumPy pattern exactly
+                # exp(2 i pi (kx * x + ky * y) ) = exp(2 i pi kx x) * exp(2 i pi ky y), summed over all atoms (hence einsum below)
                 expx = xp.exp(-1j * 2 * np.pi * self.kxs[None, :] * atomsx[:, None])
                 expy = xp.exp(-1j * 2 * np.pi * self.kys[None, :] * atomsy[:, None])
                 
