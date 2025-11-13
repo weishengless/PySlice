@@ -254,6 +254,32 @@ class Trajectory:
             timestep=self.timestep*ith
         )
 
+    def get_random_timesteps(self, N: int=1, seed: int = None) -> 'Trajectory':
+        """
+        Filter trajectory down to random frames (useful for conventional frozen-phonon)
+
+        Args:
+            N: the number of frames to keep
+            seed: randomization seed to supply to numpy random
+        Returns:
+            New Trajectory with randomized frames
+        """
+
+        if seed is not None:
+            np.random.seed(seed)
+
+        indices = np.arange(len(self.positions))
+        np.random.shuffle(indices) #; print(indices)
+        indices = indices[:N]
+
+        return Trajectory(
+            atom_types=self.atom_types,
+            positions=self.positions[indices, :, :],
+            velocities=self.velocities[indices, :, :],
+            box_matrix=self.box_matrix,
+            timestep=self.timestep
+        )
+
     def generate_random_displacements(self,n_displacements,sigma,seed=None):
         na=len(self.positions[0])
         if seed is not None:
