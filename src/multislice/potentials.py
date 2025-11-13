@@ -329,14 +329,21 @@ class Potential:
                 atomsx = slice_positions[:, self.inplane_axis1]
                 atomsy = slice_positions[:, self.inplane_axis2]
                 
-                # Compute structure factors - match NumPy pattern exactly
-                # exp(2 i pi (kx * x + ky * y) ) = exp(2 i pi kx x) * exp(2 i pi ky y), summed over all atoms (hence einsum below)
-                expx = xp.exp(-1j * 2 * np.pi * self.kxs[None, :] * atomsx[:, None])
-                expy = xp.exp(-1j * 2 * np.pi * self.kys[None, :] * atomsy[:, None])
+                # TODO i'm hard-coding the chunk size is 2000 atoms per layer which is HUGE, so this shouldn't affect anyone but me, but we really ought to do a "smarter" job of picking the chunk size
+                chunk_indices = list(np.arange(len(atomsx)))[::2000]+[len(atomsx)]
+                shape_factor = xp.zeros( (self.nx,self.ny) , dtype=complex_dtype )
+                for i1,i2 in zip(chunk_indices[:-1],chunk_indices[1:]):
+                    atx = atomsx[i1:i2]
+                    aty = atomsy[i1:i2]
+
+                    # Compute structure factors - match NumPy pattern exactly
+                    # exp(2 i pi (kx * x + ky * y) ) = exp(2 i pi kx x) * exp(2 i pi ky y), summed over all atoms (hence einsum below)
+                    expx = xp.exp(-1j * 2 * np.pi * self.kxs[None, :] * atx[:, None])
+                    expy = xp.exp(-1j * 2 * np.pi * self.kys[None, :] * aty[:, None])
                 
-                # Einstein summation - match NumPy
-                kwarg={True:{},False:{"optimize":True}}[TORCH_AVAILABLE]
-                shape_factor = xp.einsum('ax,ay->xy', expx, expy, **kwarg)
+                    # Einstein summation - match NumPy
+                    kwarg={True:{},False:{"optimize":True}}[TORCH_AVAILABLE]
+                    shape_factor += xp.einsum('ax,ay->xy', expx, expy, **kwarg)
                 
                 reciprocal += shape_factor * form_factor
 
