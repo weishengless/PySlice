@@ -330,7 +330,7 @@ def _process_frame_worker_torch(args):
             atom_type_names.append(atom_type)
     
     #try:
-    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=worker_device, slice_axis=slice_axis, progress=(frame_idx==-1))
+    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=worker_device, slice_axis=slice_axis, progress=(frame_idx==-1), cache_dir=cache_file.parent, frame_idx = frame_idx)
 
     n_probes = len(probe_positions)
     nx, ny = len(xs), len(ys)
