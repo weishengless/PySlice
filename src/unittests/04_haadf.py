@@ -27,7 +27,7 @@ trajectory=trajectory.get_random_timesteps(3,seed=5)
 xy=probe_grid([a,3*a],[b,3*b],14,16)
 
 calculator=MultisliceCalculator()
-calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_positions=xy)
+calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_positions=xy,cache_levels=[])
 exitwaves = calculator.run()
 
 #print(exitwaves.wavefunction_data.shape)
