@@ -1,7 +1,7 @@
 import sys,os
 sys.path.insert(1,"../../")
-from src.multislice.multislice import Probe
-from src.postprocessing.testtools import differ
+from pyslice.multislice.multislice import Probe
+from pyslice.postprocessing.testtools import differ
 import numpy as np
 
 # Generate a few dummy probes

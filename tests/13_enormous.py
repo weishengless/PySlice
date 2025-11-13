@@ -2,9 +2,9 @@
 
 import sys,os
 sys.path.insert(1,"../../")
-from src.io.loader import Loader
-from src.multislice.multislice import probe_grid,wavelength
-from src.multislice.calculators import MultisliceCalculator
+from pyslice.io.loader import Loader
+from pyslice.multislice.multislice import probe_grid,wavelength
+from pyslice.multislice.calculators import MultisliceCalculator
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil

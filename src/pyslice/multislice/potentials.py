@@ -12,6 +12,7 @@ try:
         device = torch.device('mps')
     else:
         device = torch.device('cpu')
+    torch.set_default_device(device)
 
     if device.type == 'mps': # Use float32 for MPS (doesn't support float64), float64 for CPU/CUDA
         complex_dtype = torch.complex64
@@ -356,9 +357,7 @@ class Potential:
             if cache_file is not None:
                 np.save(cache_file,Z)
             return Z
-
-
-
+        
         self.calculateSlice = calculateSlice
         self.array = None
        
@@ -420,7 +419,7 @@ class Potential:
             ys_max = ys_max.cpu()
 
         extent = (xs_min, xs_max, ys_min, ys_max)
-        ax.imshow(array, cmap="inferno",extent=extent)
+        ax.imshow(array, cmap="inferno", extent=extent)
         ax.set_xlabel("x ($\\AA$)")
         ax.set_ylabel("y ($\\AA$)")
 

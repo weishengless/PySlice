@@ -1,11 +1,11 @@
 import sys,os
 sys.path.insert(1,"../../")
-from src.io.loader import Loader
-from src.multislice.multislice import probe_grid
-from src.multislice.calculators import SEDCalculator
-from src.multislice.sed import SED
-from src.postprocessing.tacaw_data import TACAWData
-from src.postprocessing.testtools import differ
+from pyslice.io.loader import Loader
+from pyslice.multislice.multislice import probe_grid
+from pyslice.multislice.calculators import SEDCalculator
+from pyslice.multislice.sed import SED
+from pyslice.postprocessing.tacaw_data import TACAWData
+from pyslice.postprocessing.testtools import differ
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil

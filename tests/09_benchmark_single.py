@@ -12,9 +12,9 @@ stderr_backup = sys.stderr
 sys.stderr = io.StringIO()
 
 sys.path.insert(1,"../../")
-from src.multislice.potentials import Potential
-from src.multislice.multislice import Probe, Propagate, create_batched_probes
-from src.multislice.trajectory import Trajectory
+from pyslice.multislice.potentials import Potential
+from pyslice.multislice.multislice import Probe, Propagate, create_batched_probes
+from pyslice.multislice.trajectory import Trajectory
 import numpy as np
 import time
 from ase.build import bulk

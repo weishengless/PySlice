@@ -1,9 +1,9 @@
 import sys,os
 sys.path.insert(1,"../PySlice/trajectoryplotting/")
-from src.io.loader import TrajectoryLoader
-from src.multislice.multislice import probe_grid
-from src.multislice.calculators import MultisliceCalculator
-from src.postprocessing.haadf_data import HAADFData
+from pyslice.io.loader import TrajectoryLoader
+from pyslice.multislice.multislice import probe_grid
+from pyslice.multislice.calculators import MultisliceCalculator
+from pyslice.postprocessing.haadf_data import HAADFData
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil

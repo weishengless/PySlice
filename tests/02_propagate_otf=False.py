@@ -1,14 +1,14 @@
 import sys,os
 sys.path.insert(1,"../../")
-from src.io.loader import Loader
-from src.multislice.multislice import Probe,Propagate
-from src.multislice.potentials import gridFromTrajectory,Potential
-from src.postprocessing.testtools import differ
+from pyslice.io.loader import Loader
+from pyslice.multislice.multislice import Probe,Propagate
+from pyslice.multislice.potentials import gridFromTrajectory,Potential
+from pyslice.postprocessing.testtools import differ
 import numpy as np
-#from ..src.tacaw.ms_calculator_npy import gridFromTrajectory
-#from src.tacaw.multislice_npy import Probe,Propagate ; import numpy as xp
-#from src.tacaw.multislice_torch import Probe,PropagateBatch,create_batched_probes ; import torch as xp
-#from src.tacaw.potential import Potential
+#from ..pyslice.tacaw.ms_calculator_npy import gridFromTrajectory
+#from pyslice.tacaw.multislice_npy import Probe,Propagate ; import numpy as xp
+#from pyslice.tacaw.multislice_torch import Probe,PropagateBatch,create_batched_probes ; import torch as xp
+#from pyslice.tacaw.potential import Potential
 
 dump="inputs/hBN_truncated.lammpstrj"
 dt=.005
