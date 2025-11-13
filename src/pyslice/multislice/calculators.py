@@ -111,7 +111,7 @@ class MultisliceCalculator:
         save_path: Optional[Path] = None,
         cleanup_temp_files: bool = False,
         slice_axis: int = 2,
-        store_all_slices: bool = False,
+        cache_levels: list = ["exitwaves"], # options include: exitwaves, slices, potentials (this replaces store_all_slices)
     ):
         """
         Set up multislice simulation using PyTorch acceleration.
@@ -140,7 +140,7 @@ class MultisliceCalculator:
         self.save_path = save_path
         self.cleanup_temp_files = cleanup_temp_files
         self.slice_axis = slice_axis
-        self.store_all_slices = store_all_slices
+        self.cache_levels = cache_levels
 
         # Generate cache key and setup output directory
         cache_key = self._generate_cache_key(trajectory, aperture, voltage_eV,
@@ -180,7 +180,7 @@ class MultisliceCalculator:
             self.float_dtype = np.float64
 
         # Storage: [probe, frame, x, y, layer] - matches WFData expected format
-        n_layers = nz if store_all_slices else 1
+        n_layers = nz if "slices" in cache_levels else 1
         if TORCH_AVAILABLE and self.device is not None:
             self.wavefunction_data = torch.zeros((self.n_probes, self.n_frames, nx, ny, n_layers),
                                                    dtype=self.complex_dtype, device=self.device)
@@ -208,7 +208,7 @@ class MultisliceCalculator:
                 
                 args = [ frame_idx, positions, atom_types, self.xs, self.ys, self.zs,
                        self.aperture, self.voltage_eV, self.base_probe, self.probe_positions, self.element_map,
-                       cache_file, self.slice_axis, self.store_all_slices, self.device ]
+                       cache_file, self.cache_levels, self.slice_axis, self.device ]
                 
                 # Process frame
                 if frame_idx == 0 and self.n_frames == 1:
@@ -218,7 +218,7 @@ class MultisliceCalculator:
                 
                 # Store result
                 for probe_idx in range(self.n_probes):
-                    if self.store_all_slices:
+                    if "slices" in self.cache_levels:
                         # frame_data shape: (n_probes, nx, ny, n_slices, 1)
                         self.wavefunction_data[probe_idx, frame_idx, :, :, :] = frame_data[probe_idx, :, :, :, 0]
                     else:
@@ -257,7 +257,7 @@ class MultisliceCalculator:
         kxs = xp.fft.fftshift(xp.fft.fftfreq(self.nx, self.sampling))  # k-space in 1/Å
         kys = xp.fft.fftshift(xp.fft.fftfreq(self.ny, self.sampling))  # k-space in 1/Å
         time_array = np.arange(self.n_frames) * self.trajectory.timestep  # Time array in ps
-        layer_array = np.arange(self.nz) if self.store_all_slices else np.array([0])  # Layer indices
+        layer_array = np.arange(self.nz) if "slices" in self.cache_levels else np.array([0])  # Layer indices
         
         # Package results
         wf_data = WFData(
@@ -292,13 +292,15 @@ class MultisliceCalculator:
         return wf_data
     
 
-
-
-
+logging_tracker=[]
 def _process_frame_worker_torch(args):
-    frame_idx, positions, atom_types, xs, ys, zs, aperture, eV, probe, probe_positions, element_map, cache_file, slice_axis, store_all_slices, device = args
+    frame_idx, positions, atom_types, xs, ys, zs, aperture, eV, probe, probe_positions, element_map, cache_file, cache_levels , slice_axis, device = args
 
-    if cache_file.exists():
+    if cache_file.exists() and "exitwaves" in cache_levels:
+        global logging_tracker
+        if "cache_exists" not in logging_tracker:
+            logging_tracker.append("cache_exists")
+            logging.warning("One or more frames reloaded from cache: "+str(cache_file.parent))
         return frame_idx, xp.asarray(np.load(cache_file)), True # if always saving as numpy, then must cast to torch array if re-reading cache file back in
 
     # Use the device passed from the calculator, or auto-detect if None
@@ -328,16 +330,16 @@ def _process_frame_worker_torch(args):
             atom_type_names.append(atom_type)
     
     #try:
-    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=worker_device, slice_axis=slice_axis, progress=(frame_idx==-1))
+    potential = Potential(xs, ys, zs, positions, atom_type_names, kind="kirkland", device=worker_device, slice_axis=slice_axis, progress=(frame_idx==-1), cache_dir=cache_file.parent if "potentials" in cache_levels else None, frame_idx = frame_idx)
 
     n_probes = len(probe_positions)
     nx, ny = len(xs), len(ys)
     n_slices = len(zs)
 
     batched_probes = create_batched_probes(probe, probe_positions, worker_device)
-    exit_waves_batch = Propagate(batched_probes, potential, worker_device, progress=(frame_idx==-1), onthefly=True, store_all_slices=store_all_slices)
+    exit_waves_batch = Propagate(batched_probes, potential, worker_device, progress=(frame_idx==-1), onthefly=True, store_all_slices = ("slices" in cache_levels) )
 
-    if store_all_slices:
+    if "slices" in cache_levels:
         # exit_waves_batch shape: (n_slices, n_probes, nx, ny)
         if TORCH_AVAILABLE and worker_device is not None:
             frame_data = torch.zeros((n_probes, nx, ny, n_slices, 1), dtype=worker_complex_dtype, device=worker_device)
@@ -394,7 +396,9 @@ def _process_frame_worker_torch(args):
     else:
         frame_data_cpu = frame_data
 
-    np.save(cache_file, frame_data_cpu)
+    if "exitwaves" in cache_levels:
+        np.save(cache_file, frame_data_cpu)
+
     return frame_idx, frame_data, False
         
     #except Exception as e:

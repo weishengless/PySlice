@@ -1,6 +1,6 @@
 import numpy as np
 from pathlib import Path
-import logging
+import logging,os
 from tqdm import tqdm
 
 try:
@@ -185,7 +185,7 @@ def loadKirkland(device='cpu'):
         kirklandABCDs = np.asarray(kirkland_params)
 
 class Potential:    
-    def __init__(self, xs, ys, zs, positions, atomTypes, kind="kirkland", device=None, slice_axis=2, progress=False):
+    def __init__(self, xs, ys, zs, positions, atomTypes, kind="kirkland", device=None, slice_axis=2, progress=False, cache_dir=None, frame_idx=None):
         # Set up device and backend first
         if TORCH_AVAILABLE:
             # Auto-detect device if not specified
@@ -275,7 +275,16 @@ class Potential:
             elif kind == "gauss":
                 form_factors[at] = torch.exp(-1**2 * qsq / 2)
         
+        self.cache_dir = cache_dir
+        self.frame_idx = frame_idx
+
         def calculateSlice(slice_idx):
+            # check for caching
+            cache_file = None
+            if self.cache_dir is not None:
+                cache_file = self.cache_dir / ("potential_"+str(frame_idx)+"_"+str(slice_idx)+".npy")
+            if cache_file is not None and os.path.exists(cache_file):
+                return np.load(cache_file)
 
             # Initialize slice of potential array using xp with conditional device
             device_kwargs = {'device': self.device } if self.use_torch else {}
@@ -320,13 +329,21 @@ class Potential:
                 atomsx = slice_positions[:, self.inplane_axis1]
                 atomsy = slice_positions[:, self.inplane_axis2]
                 
-                # Compute structure factors - match NumPy pattern exactly
-                expx = xp.exp(-1j * 2 * np.pi * self.kxs[None, :] * atomsx[:, None])
-                expy = xp.exp(-1j * 2 * np.pi * self.kys[None, :] * atomsy[:, None])
+                # TODO i'm hard-coding the chunk size is 2000 atoms per layer which is HUGE, so this shouldn't affect anyone but me, but we really ought to do a "smarter" job of picking the chunk size
+                chunk_indices = list(np.arange(len(atomsx)))[::2000]+[len(atomsx)]
+                shape_factor = xp.zeros( (self.nx,self.ny) , dtype=complex_dtype )
+                for i1,i2 in zip(chunk_indices[:-1],chunk_indices[1:]):
+                    atx = atomsx[i1:i2]
+                    aty = atomsy[i1:i2]
+
+                    # Compute structure factors - match NumPy pattern exactly
+                    # exp(2 i pi (kx * x + ky * y) ) = exp(2 i pi kx x) * exp(2 i pi ky y), summed over all atoms (hence einsum below)
+                    expx = xp.exp(-1j * 2 * np.pi * self.kxs[None, :] * atx[:, None])
+                    expy = xp.exp(-1j * 2 * np.pi * self.kys[None, :] * aty[:, None])
                 
-                # Einstein summation - match NumPy
-                kwarg={True:{},False:{"optimize":True}}[TORCH_AVAILABLE]
-                shape_factor = xp.einsum('ax,ay->xy', expx, expy, **kwarg)
+                    # Einstein summation - match NumPy
+                    kwarg={True:{},False:{"optimize":True}}[TORCH_AVAILABLE]
+                    shape_factor += xp.einsum('ax,ay->xy', expx, expy, **kwarg)
                 
                 reciprocal += shape_factor * form_factor
 
@@ -335,7 +352,10 @@ class Potential:
             # Apply proper normalization factor (dx²×dy²) to match reference implementation
             dx = self.xs[1] - self.xs[0]
             dy = self.ys[1] - self.ys[0] 
-            return real / (dx**2 * dy**2)
+            Z = real / (dx**2 * dy**2)
+            if cache_file is not None:
+                np.save(cache_file,Z)
+            return Z
 
 
 
