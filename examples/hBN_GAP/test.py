@@ -182,12 +182,12 @@ def main():
     print(f"HAADF trajectory trimmed to 10×10 unit cells: {haadf_trajectory.n_atoms} atoms")
     
     # Select 3 random frames (like unit test)
-    slice_timesteps = np.arange(haadf_trajectory.n_frames)
+    indices_timesteps = np.arange(haadf_trajectory.n_frames)
     np.random.seed(5)  # For reproducibility
-    np.random.shuffle(slice_timesteps)
-    slice_timesteps = slice_timesteps[:3]
-    haadf_trajectory = haadf_trajectory.slice_timesteps(slice_timesteps)
-    print(f"HAADF using 3 random frames: {slice_timesteps}")
+    np.random.shuffle(indices_timesteps)
+    indices_timesteps = indices_timesteps[:3]
+    haadf_trajectory = haadf_trajectory.select_timesteps(indices_timesteps)
+    print(f"HAADF using 3 random frames: {indices_timesteps}")
     
     # Create probe grid using lattice coordinates (like unit test)
     # For ~500 probes: use 20×25 = 500 probes over 3×3 unit cells
@@ -217,7 +217,7 @@ def main():
     # Generate HAADF image
     print("Generating HAADF image...")
     haadf_data = HAADFData(haadf_wf_data)
-    haadf_image = haadf_data.ADF(collection_angle=45, preview=False)  # 45 mrad collection angle
+    haadf_image = haadf_data.calculateADF(preview=False)  # 45 mrad collection angle
     
     # Plot HAADF image
     fig, ax = plt.subplots(figsize=(8, 8))

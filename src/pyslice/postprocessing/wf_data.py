@@ -227,7 +227,7 @@ class WFData:
         #if dz>0:
         self.array = P[None,None,:,:,None] * self.array
 
-    def applyMask(self,radius,realOrReciprocal="reciprocal"):
+    def applyMask(self, radius, realOrReciprocal="reciprocal"):
         if realOrReciprocal == "reciprocal":
             radii = xp.sqrt( self.kxs[:,None]**2 + self.kys[None,:]**2 )
             mask = xp.zeros(radii.shape, device=self.array.device if TORCH_AVAILABLE else None)
@@ -242,4 +242,3 @@ class WFData:
             real = xp.fft.ifft2(xp.fft.ifftshift(self.array,**kwarg),**kwarg)
             real *= mask[None,None,:,:,None]
             self.array = xp.fft.fftshift(xp.fft.fft2(real,**kwarg),**kwarg)
-

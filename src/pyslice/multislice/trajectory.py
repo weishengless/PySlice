@@ -268,12 +268,14 @@ class Trajectory:
         if indices is None:
             indices=slice(0, len(self.positions), 1)
 
+        # Note in this case the timestep variable is meaningless,
+        # maybe we can find a more elegant solution (?) 
         return Trajectory(
             atom_types=self.atom_types,
             positions=self.positions[indices, :, :],
             velocities=self.velocities[indices, :, :],
             box_matrix=self.box_matrix,
-            timestep=self.timestep*ith
+            timestep=0.0
         )
 
     def generate_random_displacements(self,n_displacements,sigma,seed=None):
