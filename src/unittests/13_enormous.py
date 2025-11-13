@@ -52,24 +52,6 @@ calculator.base_probe.aberrate({"C30":50000})
 exitwaves.propagate_free_space(defocus-calculator.lz)
 
 # REAL SPACE EXIT WAVE SHOWS PROBES FORMING THE DIFFRACTION PATTERN
-exitwaves.plot_realspace(filename="diffraction.svg")
-
-# ENERGY RESOLVED:
-#tacaw = TACAWData(exitwaves,keep_complex=True)
-
-# DIFFRACTION FROM TACAW:
-#diff=tacaw.diffraction(space="real").T # # swap default x,y to imshow's y,x since tacaw.plot does not transpose
-#tacaw.plot(diff**.125,"x","y") 
-
-# PLOT AN ENERGY SLICE:
-#Z = tacaw.spectral_diffraction(30,space="real").T
-#tacaw.plot(Z**.125,"x","y")#,filename="midgley_30THz.png")
-
-# PLOT THE DISPERSION
-#xs=np.asarray(tacaw.xs) ; xm = np.mean(xs) ; xs=xs[xs>=xm] ; xs=xs[xs<=xm+4*dx]
-#ys=np.asarray(tacaw.ys) ; ym = np.mean(ys) ; ys = np.zeros(len(xs))+ym+dy
-#dispersion = tacaw.dispersion( xs , ys , space="real")
-#tacaw.plot(dispersion**.125,xs,"omega")#,filename="midgley_dispersion.png")
-
+exitwaves.plot_realspace()
 
 

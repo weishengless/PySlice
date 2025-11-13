@@ -299,6 +299,7 @@ def _process_frame_worker_torch(args):
     frame_idx, positions, atom_types, xs, ys, zs, aperture, eV, probe, probe_positions, element_map, cache_file, slice_axis, store_all_slices, device = args
 
     if cache_file.exists():
+        warnings.warn("Frame reloaded from cache:",cache_file)
         return frame_idx, xp.asarray(np.load(cache_file)), True # if always saving as numpy, then must cast to torch array if re-reading cache file back in
 
     # Use the device passed from the calculator, or auto-detect if None

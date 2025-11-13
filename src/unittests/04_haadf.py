@@ -22,10 +22,7 @@ trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 # TRIM TO 10x10 UC
 trajectory=trajectory.slice_positions([0,10*a],[0,10*b])
 # SELECT 10 "RANDOM" TIMESTEPS (use seed for reproducibility)
-slice_timesteps = np.arange(trajectory.n_frames)
-np.random.seed(5) ; np.random.shuffle(slice_timesteps)
-slice_timesteps = slice_timesteps[:3] # 3 random frames (test we can do multiple but don't bog down the test)
-trajectory=trajectory.slice_timesteps( slice_timesteps )
+trajectory=trajectory.get_random_timesteps(3,seed=5)
 # SET UP GRID OF HAADF SCAN POINTS
 xy=probe_grid([a,3*a],[b,3*b],14,16)
 
