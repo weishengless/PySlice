@@ -3,31 +3,16 @@ import numpy as np
 import torch
 
 
-def configure_backend(device_spec=None, backend_spec=None):
-    """Return (xp, device) based on device_spec string or None for default."""
+def device_and_precision(device_spec=None):
     
-    if backend_spec is None:
-        if TORCH_AVAILABLE:
-            xp = torch
-        else:
-            xp = np
-    else:
-        if backend_spec == 'torch':
-            xp = torch
-        elif backend_spec == 'numpy':
-            xp = np
-        else:
-            raise NotImplementedError(f'Backend {backend_spec} is not Implemented.')
-
     # We always choose PyTorch if available
     if xp == torch:
         if device_spec is None:
             device = DEFAULT_DEVICE
         else: 
             device = xp.device(device_spec)
-        xp.set_default_device(device)
     else:
-        device = None 
+        device = None
     
     if device is not None and device.type == 'mps': # Use float32 for MPS (doesn't support float64), float64 for CPU/CUDA
         complex_dtype = xp.complex64
@@ -36,22 +21,95 @@ def configure_backend(device_spec=None, backend_spec=None):
         complex_dtype = xp.complex128
         float_dtype = xp.float64
     
-    return xp, device, float_dtype, complex_dtype 
-
+    return device, float_dtype, complex_dtype 
 
 
 try:
     import torch
-    TORCH_AVAILABLE = True
+    xp = torch
     if torch.cuda.is_available():
-        xp, DEFAULT_DEVICE, float_dtype, complex_dtype = configure_backend('cuda')
+        config = device_and_precision('cuda')
     elif torch.backends.mps.is_available():
-        xp, DEFAULT_DEVICE, float_dtype, complex_dtype = configure_backend('mps')
+        config = device_and_precision('mps')
     else:
-        xp, DEFAULT_DEVICE, float_dtype, complex_dtype = configure_backend('cpu')
+        config = device_and_precision('cpu')
 
 except ImportError:
-    TORCH_AVAILABLE = False
-    DEFAULT_DEVICE = None
-    xp, DEFAULT_DEVICE, float_dtype, complex_dtype = configure_backend()
+    xp = np
+    config = device_and_precision()
 
+DEFAULT_DEVICE, DEFAULT_FLOAT_DTYPE, DEFAULT_COMPLEX_DTYPE = config
+del config
+
+
+def asarray(arraylike, dtype=None, device=None):
+    if dtype is None:
+        dtype = DEFAULT_FLOAT_DTYPE
+    if device is None:
+        device = DEFAULT_DEVICE
+    if xp == torch:
+#        if dtype == bool:
+#            dtype = xp.bool
+        array = xp.tensor(arraylike, dtype=dtype, device=device)
+    else:
+        array = xp.asarray(arraylike, dtype=dtype)
+    return array
+
+def zeros(dims, dtype=DEFAULT_FLOAT_DTYPE, device=DEFAULT_DEVICE):
+    if xp == torch:
+        array = xp.zeros(dims, dtype=dtype, device=device)
+    else:
+        array = xp.zeros(dims, dtype=dtype)
+    return array
+
+def fftfreq(n, d, dtype=DEFAULT_FLOAT_DTYPE, device=DEFAULT_DEVICE):
+    if xp is torch:
+        return xp.fft.fftfreq(n, d, dtype=dtype, device=device)
+    else:
+        return xp.fft.fftfreq(n, d, dtype=dtype)
+
+
+def exp(x):
+    return xp.exp(x)
+
+def fft(k):
+    return xp.fft.fft(k)
+
+def ifft2(k):
+    return xp.fft.ifft2(k)
+
+def real(x):
+    return xp.real(x)
+
+def absolute(x):
+    return xp.absolute(x)
+
+def amax(x):
+    return xp.amax(x)
+
+def amin(x):
+    return xp.amin(x)
+
+def sum(x, axis=None, **kwargs):
+    if xp is torch:
+        return xp.sum(x, dim=axis, **kwargs)
+    else:
+        return xp.sum(x, axis=axis, **kwargs)
+
+def any(x):
+    return xp.any(x)
+
+def einsum(subscripts, *operands, **kwargs):
+    if xp is torch:
+        return xp.einsum(subscripts, *operands, **kwargs)
+    else:
+        return xp.einsum(subscripts, *operands, optimize=True, **kwargs)
+
+def to_cpu(array):
+    if type(array) == np.ndarray:
+        return array
+    else:
+        return array.cpu().numpy()
+
+def isnan(x):
+    return xp.isnan(x)

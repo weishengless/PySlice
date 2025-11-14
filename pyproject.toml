@@ -25,3 +25,18 @@ test = ["abtem>=1.0.6"]
 
 [project.urls]
 Homepage = "https://github.com/h-walk/PySlice"
+
+[tool.setuptools.package-data]
+mypkg = ["data/*.txt", "data/*.json"]
+
+[tool.hatch.build]
+include = [
+    "src/pyslice/data/*.txt",
+    "src/pyslice/data/*.json",
+]
+
+[tool.uv.build]
+include = [
+    "src/pyslice/data/*.txt",
+    "src/pyslice/data/*.json",
+]
