@@ -11,7 +11,6 @@ import io
 stderr_backup = sys.stderr
 sys.stderr = io.StringIO()
 
-sys.path.insert(1,"../../")
 from pyslice.multislice.potentials import Potential
 from pyslice.multislice.multislice import Probe, Propagate, create_batched_probes
 from pyslice.multislice.trajectory import Trajectory

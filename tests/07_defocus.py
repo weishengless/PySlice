@@ -1,5 +1,4 @@
 import sys,os
-sys.path.insert(1,"../../")
 from pyslice.io.loader import Loader
 from pyslice.multislice.multislice import probe_grid,Probe,Propagate
 from pyslice.multislice.potentials import gridFromTrajectory,Potential

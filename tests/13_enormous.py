@@ -1,7 +1,6 @@
 # This serves as a quick and dirty memory stress test, by tiling the hBN example system out to 5x5 and running Midgley diffraction
 
 import sys,os
-sys.path.insert(1,"../../")
 from pyslice.io.loader import Loader
 from pyslice.multislice.multislice import probe_grid,wavelength
 from pyslice.multislice.calculators import MultisliceCalculator

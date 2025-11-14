@@ -1,5 +1,4 @@
 import sys,os
-sys.path.insert(1,"../../")
 from pyslice.multislice.multislice import Probe
 from pyslice.postprocessing.testtools import differ
 import numpy as np
