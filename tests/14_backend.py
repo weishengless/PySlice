@@ -3,6 +3,8 @@ from pyslice.backend import configure_backend
 
 print(xp, DEFAULT_DEVICE, float_dtype, complex_dtype)
 
+print(configure_backend())
+print(configure_backend(backend_spec='torch'))
 print(configure_backend('cuda'))
 print(configure_backend('cpu'))
 print(configure_backend('mps'))

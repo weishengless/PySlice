@@ -1,4 +1,8 @@
 import sys,os
+try:
+    import pyslice
+except ModuleNotFoundError:
+    sys.path.insert(0, '../src')
 from pyslice.multislice.multislice import Probe
 from pyslice.postprocessing.testtools import differ
 import numpy as np

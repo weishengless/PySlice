@@ -1,4 +1,8 @@
 import sys,os
+try:
+    import pyslice
+except ModuleNotFoundError:
+    sys.path.insert(0, '../src')
 from pyslice.io.loader import Loader
 from pyslice.multislice.multislice import Probe,Propagate
 from pyslice.multislice.potentials import gridFromTrajectory,Potential
