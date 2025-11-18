@@ -1,0 +1,37 @@
+import sys,os
+try:
+    import pyslice
+except ModuleNotFoundError:
+    sys.path.insert(0, '../src')
+from pyslice.io.loader import Loader
+from pyslice.multislice.potentials import gridFromTrajectory,Potential
+from pyslice.postprocessing.testtools import differ
+import numpy as np
+#from ..pyslice.tacaw.ms_calculator_npy import gridFromTrajectory
+#from pyslice.tacaw.multislice_npy import Probe,Propagate ; import numpy as xp
+#from pyslice.tacaw.multislice_torch import Probe,PropagateBatch,create_batched_probes ; import torch as xp
+#from pyslice.tacaw.potential import Potential
+
+dump="inputs/hBN_truncated.lammpstrj"
+dt=.005
+types={1:"B",2:"N"}
+
+# LOAD MD OUTPUT
+trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
+
+# TEST GENERATION OF THE POTENTIAL
+positions = trajectory.positions[0]
+atom_types=trajectory.atom_types
+xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
+potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
+potential.build()
+ary=potential.to_cpu()  # Convert to CPU numpy array properly
+
+differ(ary[::3,::3,:],"outputs/potentials-test.npy","POTENTIAL")
+
+potential.plot("outputs/figs/01_potentials.png")
+
+#import matplotlib.pyplot as plt
+#fig, ax = plt.subplots()
+#ax.imshow(np.sum(ary,axis=2), cmap="inferno")
+#plt.show()
