@@ -9,7 +9,6 @@ dependencies = [
     "dataclasses",
     "ipykernel",
     "jupyter",
-    "logging",
     "matplotlib",
     "numpy",
     "ovito",
