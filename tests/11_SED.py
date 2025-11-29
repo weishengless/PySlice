@@ -61,5 +61,5 @@ calculator.run()
 #Zy=np.reshape(Zy,(len(ws),nx,ny))
 #Zz=np.reshape(Zz,(len(ws),nx,ny))
 
-calculator.plot(30)
+calculator.plot(30,filename="outputs/figs/11_SED_30THz.png")
 

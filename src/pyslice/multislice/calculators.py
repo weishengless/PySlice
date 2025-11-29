@@ -462,7 +462,7 @@ class SEDCalculator:
 
         self.ws = ws/self.trajectory.timestep
 
-    def plot(self,w): # TODO MAYBE "RUN" SHOULD RETURN A TACAW OBJECT SO WE CAN REUSE TACAW PLOTTING/POSTPROCESSING FUNCTIONALITY??
+    def plot(self,w,filename=None): # TODO MAYBE "RUN" SHOULD RETURN A TACAW OBJECT SO WE CAN REUSE TACAW PLOTTING/POSTPROCESSING FUNCTIONALITY??
         import matplotlib.pyplot as plt
 
         #fig, ax = plt.subplots()
@@ -478,6 +478,9 @@ class SEDCalculator:
         ax.set_xlabel("kx ($\\AA^{-1}$)")
         ax.set_ylabel("ky ($\\AA^{-1}$)")
 
-        plt.show()
+        if filename is not None:
+            plt.savefig(filename)
+        else:
+            plt.show()
 
 

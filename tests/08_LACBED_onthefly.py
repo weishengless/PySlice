@@ -23,7 +23,7 @@ trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 # SELECT "RANDOM" TIMESTEPS (use seed for reproducibility)
 slice_timesteps = np.arange(trajectory.n_frames)
 np.random.seed(5) ; np.random.shuffle(slice_timesteps)
-trajectories = [ trajectory.slice_timesteps( [i] ) for i in slice_timesteps[:10] ]
+trajectories = [ trajectory.slice_timesteps( i, i+1 ) for i in slice_timesteps[:10] ]
 trajectory = trajectories[0].tile_positions([1,1,10],trajectories)
 #trajectory = trajectories[0]
 

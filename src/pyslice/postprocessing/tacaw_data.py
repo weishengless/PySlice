@@ -124,7 +124,10 @@ class TACAWData(WFData):
                 self.intensity = np.abs(wf_fft)**2
 
         np.save(self.cache_dir / "tacaw_freq.npy", self.frequencies)
-        np.save(self.cache_dir / "tacaw.npy", self.intensity.detach().cpu().numpy())
+        if TORCH_AVAILABLE:
+            np.save(self.cache_dir / "tacaw.npy", self.intensity.detach().cpu().numpy())
+        else:
+            np.save(self.cache_dir / "tacaw.npy", self.intensity)
 
 
     def spectrum(self, probe_index: int = None) -> np.ndarray:

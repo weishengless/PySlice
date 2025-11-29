@@ -11,13 +11,14 @@ from pyslice.postprocessing.testtools import differ
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil
+from tqdm import tqdm
 
 # PROBE
 xs=np.linspace(0,70,701)
 ys=np.linspace(0,69,691)
 eVs = np.linspace(80,120,50)
 weighting = np.exp(-(eVs-100)**2/6**2)
-plt.plot(eVs,weighting) ; plt.show()
+plt.plot(eVs,weighting) ; plt.savefig("outputs/figs/12_aberrations_espread.png")
 probes = [ Probe(xs,ys,mrad=30,eV=eV*1e3) for eV in eVs ]
 # does it matter whether you aberrate the focused or defocused probe? i don't think so??
 
@@ -49,10 +50,20 @@ z1=1600 ; zf=2600
 dz = (zf-z1)/(nx*ny-1)
 #zs = np.linspace(-1000,100,nx*ny) ; dz=zs[1]-zs[0]
 
-fig,axs = plt.subplots(ny,nx)
+plt.rc('axes', titlesize=2)  # Adjusts title font size
+plt.rc('axes', titlepad=1)  # Adjusts title font size
+plt.rc('axes', labelsize=2)  # Adjusts axis label font size
+plt.rc('xtick', labelsize=2) # Adjusts x-tick label font size
+plt.rc('ytick', labelsize=2) # Adjusts y-tick label font size
+plt.rc('xtick.major',pad=1,size=1)
+plt.rc('ytick.major',pad=1,size=1)
+
+fig,axs = plt.subplots(ny,nx,dpi=3000)
+
+
 ct=0 ; z=0
 for j in range(ny):
-	for i in range(nx):
+	for i in tqdm(range(nx)):
 		if ct==0:
 			for probe in probes:
 				probe.defocus(z1)
@@ -68,4 +79,4 @@ for j in range(ny):
 		axs[j,i].imshow(probe**2)
 		ct+=1
 
-plt.show()
+plt.savefig("outputs/figs/12_aberrations_tableau.png")
