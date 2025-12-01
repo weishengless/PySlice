@@ -6,7 +6,14 @@ import numpy as np
 from typing import Optional, Tuple, Dict, Any, List, Union
 from pathlib import Path
 import logging, os
-from .wf_data import WFData
+from .wf_data import WFData, SEA_ECO_AVAILABLE
+from pyslice.backend import to_cpu
+
+# Optional sea-eco integration
+if SEA_ECO_AVAILABLE:
+    from pySEA.sea_eco.architecture.base_structure_numpy import (
+        Signal, Dimensions, Dimension, GeneralMetadata
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -343,6 +350,10 @@ class TACAWData(WFData):
         if space == "real":
             kx=self.xs ; ky=self.ys
 
+        # Convert to CPU/numpy for indexing operations
+        kx = to_cpu(kx)
+        ky = to_cpu(ky)
+
         # Find closest indices in our kxs/kys arrays for the requested paths
         kx_indices = []
         for kx_val in kx_path:
@@ -384,45 +395,162 @@ class TACAWData(WFData):
         return np.absolute(dispersion)
 
     # Since there are multiple things returnable by the above functions, i'm just offering up a generic heatmap plotter function here, where you pass Z,x,y
-    def plot(self,intensities,xvals,yvals,xlabel="kx ($\\AA^{-1}$)",ylabel="ky ($\\AA^{-1}$)",filename=None):
+    def plot(self,intensities,xvals,yvals,xlabel="kx ($\\AA^{-1}$)",ylabel="ky ($\\AA^{-1}$)",filename=None,title=None):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        array = np.absolute(intensities) # imshow convention: y,x. our convention: x,y
+        array = np.absolute(to_cpu(intensities)) # imshow convention: y,x. our convention: x,y
         aspect = None
 
         if isinstance(xvals,str):
             if xvals in ["kx","k"]:
-                xlabel = "kx ($\\AA^{-1}$)" ; xvals = np.asarray(self.kxs)
+                xlabel = "kx ($\\AA^{-1}$)" ; xvals = to_cpu(self.kxs)
             elif xvals == "ky":
-                xlabel = "ky ($\\AA^{-1}$)" ; xvals = np.asarray(self.kys)
+                xlabel = "ky ($\\AA^{-1}$)" ; xvals = to_cpu(self.kys)
             elif xvals == "x":
-                xlabel = "x ($\\AA$)" ; xvals = np.asarray(self.xs)
+                xlabel = "x ($\\AA$)" ; xvals = to_cpu(self.xs)
             elif xvals == "y":
-                xlabel = "y ($\\AA$)" ; xvals = np.asarray(self.ys)
+                xlabel = "y ($\\AA$)" ; xvals = to_cpu(self.ys)
 
         if isinstance(yvals,str):
             if yvals == "omega":
                 aspect = "auto"
             if yvals == "kx":
-                ylabel = "kx ($\\AA^{-1}$)" ; yvals = np.asarray(self.kxs)
+                ylabel = "kx ($\\AA^{-1}$)" ; yvals = to_cpu(self.kxs)
             elif yvals in ["ky","k"]:
-                ylabel = "ky ($\\AA^{-1}$)" ; yvals = np.asarray(self.kys)
+                ylabel = "ky ($\\AA^{-1}$)" ; yvals = to_cpu(self.kys)
             elif yvals == "x":
-                ylabel = "x ($\\AA$)" ; yvals = np.asarray(self.xs)
+                ylabel = "x ($\\AA$)" ; yvals = to_cpu(self.xs)
             elif yvals == "y":
-                ylabel = "y ($\\AA$)" ; yvals = np.asarray(self.ys)
+                ylabel = "y ($\\AA$)" ; yvals = to_cpu(self.ys)
             elif yvals == "omega":
-                ylabel = "frequency (THz)" ; yvals = np.asarray(self.frequencies)
+                ylabel = "frequency (THz)" ; yvals = to_cpu(self.frequencies)
 
         extent = ( np.amin(xvals) , np.amax(xvals) , np.amin(yvals) , np.amax(yvals) )
         ax.imshow(array, cmap="inferno",extent=extent,aspect=aspect)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
+        if title is not None:
+            ax.set_title(title)
 
         if filename is not None:
             plt.savefig(filename)
         else:
             plt.show()
+
+    def to_signal(self, output: str = 'intensity', probe_index: Optional[int] = None,
+                  kx_path: Optional[np.ndarray] = None, ky_path: Optional[np.ndarray] = None) -> 'Signal':
+        """
+        Convert TACAWData to a sea-eco Signal object.
+
+        Args:
+            output: Type of data to export. Options:
+                - 'intensity': Full 4D data (probe, frequency, kx, ky)
+                - 'spectrum': 1D spectrum summed over k-space (frequency,)
+                - 'diffraction': 2D diffraction summed over frequencies (kx, ky)
+                - 'dispersion': 2D dispersion along k-path (frequency, k). Requires kx_path and ky_path.
+            probe_index: Which probe position to export. If None, averages/exports all probes.
+            kx_path: kx values for dispersion path (required if output='dispersion')
+            ky_path: ky values for dispersion path (required if output='dispersion')
+
+        Returns:
+            Signal object with appropriate dimensions for the output type.
+
+        Raises:
+            ImportError: If sea-eco is not installed
+            ValueError: If output type is invalid or dispersion requested without k-path
+        """
+        if not SEA_ECO_AVAILABLE:
+            raise ImportError(
+                "sea-eco package is required for to_signal(). "
+                "Install it with: pip install -e /path/to/sea-eco"
+            )
+
+        # Convert coordinate arrays to numpy
+        frequencies = to_cpu(self.frequencies)
+        kxs = to_cpu(self.kxs)
+        kys = to_cpu(self.kys)
+
+        if output == 'intensity':
+            intensity = self.intensity
+            if TORCH_AVAILABLE and hasattr(intensity, 'cpu'):
+                intensity = intensity.cpu().numpy()
+
+            if probe_index is not None:
+                data = np.asarray(intensity[probe_index])
+                dimensions = Dimensions([
+                    Dimension(name='frequency', space='spectral', units='THz', values=np.asarray(frequencies)),
+                    Dimension(name='kx', space='scattering', units='Å⁻¹', values=np.asarray(kxs)),
+                    Dimension(name='ky', space='scattering', units='Å⁻¹', values=np.asarray(kys)),
+                ], nav_dimensions=[0], sig_dimensions=[1, 2])
+            else:
+                data = np.asarray(intensity)
+                dimensions = Dimensions([
+                    Dimension(name='probe', space='position', units='Å', values=np.arange(len(self.probe_positions))),
+                    Dimension(name='frequency', space='spectral', units='THz', values=np.asarray(frequencies)),
+                    Dimension(name='kx', space='scattering', units='Å⁻¹', values=np.asarray(kxs)),
+                    Dimension(name='ky', space='scattering', units='Å⁻¹', values=np.asarray(kys)),
+                ], nav_dimensions=[0, 1], sig_dimensions=[2, 3])
+            signal_type = '2D-EELS'
+            name = 'TACAW_intensity'
+
+        elif output == 'spectrum':
+            data = self.spectrum(probe_index=probe_index)
+            dimensions = Dimensions([
+                Dimension(name='frequency', space='spectral', units='THz', values=np.asarray(frequencies)),
+            ], nav_dimensions=[], sig_dimensions=[0])
+            signal_type = '1D-EELS'
+            name = 'TACAW_spectrum'
+
+        elif output == 'diffraction':
+            data = self.diffraction(probe_index=probe_index)
+            dimensions = Dimensions([
+                Dimension(name='kx', space='scattering', units='Å⁻¹', values=np.asarray(kxs)),
+                Dimension(name='ky', space='scattering', units='Å⁻¹', values=np.asarray(kys)),
+            ], nav_dimensions=[], sig_dimensions=[0, 1])
+            signal_type = 'Diffraction'
+            name = 'TACAW_diffraction'
+
+        elif output == 'dispersion':
+            if kx_path is None or ky_path is None:
+                raise ValueError("kx_path and ky_path are required for dispersion output")
+            data = self.dispersion(kx_path, ky_path, probe_index=probe_index)
+            k_path = np.sqrt(kx_path**2 + ky_path**2)
+            dimensions = Dimensions([
+                Dimension(name='frequency', space='spectral', units='THz', values=np.asarray(frequencies)),
+                Dimension(name='k', space='scattering', units='Å⁻¹', values=np.asarray(k_path)),
+            ], nav_dimensions=[], sig_dimensions=[0, 1])
+            signal_type = '2D-EELS'
+            name = 'TACAW_dispersion'
+
+        else:
+            raise ValueError(f"Unknown output type: {output}. Use 'intensity', 'spectrum', 'diffraction', or 'dispersion'")
+
+        # Build metadata
+        metadata_dict = {
+            'General': {'title': f'TACAW {output.capitalize()}', 'signal_type': f'TACAW {output}'},
+            'Instrument': {
+                'beam_energy': float(self.probe.eV),
+                'Detectors': {
+                    'Simulated': {
+                        'name': 'TACAW Simulation',
+                        'voltage_eV': float(self.probe.eV),
+                        'wavelength_A': float(self.probe.wavelength),
+                        'aperture_mrad': float(self.probe.mrad),
+                    }
+                },
+                'Scan': {'scan_uuid': None}
+            },
+            'Simulation': {
+                'voltage_eV': float(self.probe.eV),
+                'wavelength_A': float(self.probe.wavelength),
+                'aperture_mrad': float(self.probe.mrad),
+                'probe_positions': [list(p) for p in self.probe_positions],
+                'probe_index': probe_index,
+            }
+        }
+        metadata = GeneralMetadata(metadata_dict)
+
+        return Signal(data=data, name=name, dimensions=dimensions, signal_type=signal_type, metadata=metadata)
 
 @dataclass
 class SEDData:

@@ -3,9 +3,18 @@ Wave function data structure.
 """
 from dataclasses import dataclass
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from ..multislice.multislice import Probe
 from pathlib import Path
+
+# Optional sea-eco integration
+try:
+    from pySEA.sea_eco.architecture.base_structure_numpy import (
+        Signal, Dimensions, Dimension, GeneralMetadata
+    )
+    SEA_ECO_AVAILABLE = True
+except ImportError:
+    SEA_ECO_AVAILABLE = False
 
 try:
     import torch ; xp = torch
@@ -242,3 +251,107 @@ class WFData:
             real = xp.fft.ifft2(xp.fft.ifftshift(self.array,**kwarg),**kwarg)
             real *= mask[None,None,:,:,None]
             self.array = xp.fft.fftshift(xp.fft.fft2(real,**kwarg),**kwarg)
+
+    def to_signal(self, layer_index: int = -1, probe_index: Optional[int] = None) -> 'Signal':
+        """
+        Convert WFData to a sea-eco Signal object.
+
+        Args:
+            layer_index: Which layer to export (default: -1, last layer)
+            probe_index: Which probe position to export. If None, exports all probes.
+
+        Returns:
+            Signal object containing the wavefunction data with proper dimensions
+
+        Raises:
+            ImportError: If sea-eco is not installed
+        """
+        if not SEA_ECO_AVAILABLE:
+            raise ImportError(
+                "sea-eco package is required for to_signal(). "
+                "Install it with: pip install -e /path/to/sea-eco"
+            )
+
+        # Convert array to numpy if needed
+        array = self.array
+        if TORCH_AVAILABLE and hasattr(array, 'cpu'):
+            array = array.cpu().numpy()
+
+        # Helper to convert tensors to numpy
+        def to_numpy(x):
+            if hasattr(x, 'cpu'):
+                return x.cpu().numpy()
+            return np.asarray(x)
+
+        # Convert coordinate arrays
+        time_arr = to_numpy(self.time)
+        kxs_arr = to_numpy(self.kxs)
+        kys_arr = to_numpy(self.kys)
+
+        # Extract the specified layer
+        if probe_index is not None:
+            # Single probe: shape becomes (time, kx, ky)
+            data = array[probe_index, :, :, :, layer_index]
+            probe_pos = self.probe_positions[probe_index]
+
+            dimensions = Dimensions([
+                Dimension(name='time', space='temporal', units='ps',
+                         values=time_arr),
+                Dimension(name='kx', space='scattering', units='Å⁻¹',
+                         values=kxs_arr),
+                Dimension(name='ky', space='scattering', units='Å⁻¹',
+                         values=kys_arr),
+            ], nav_dimensions=[0], sig_dimensions=[1, 2])
+        else:
+            # All probes: shape is (probe, time, kx, ky)
+            data = array[:, :, :, :, layer_index]
+            probe_pos = self.probe_positions
+
+            dimensions = Dimensions([
+                Dimension(name='probe', space='position', units='Å',
+                         values=np.arange(len(self.probe_positions))),
+                Dimension(name='time', space='temporal', units='ps',
+                         values=time_arr),
+                Dimension(name='kx', space='scattering', units='Å⁻¹',
+                         values=kxs_arr),
+                Dimension(name='ky', space='scattering', units='Å⁻¹',
+                         values=kys_arr),
+            ], nav_dimensions=[0, 1], sig_dimensions=[2, 3])
+
+        # Build metadata from simulation parameters
+        metadata_dict = {
+            'General': {
+                'title': 'Multislice Wavefunction',
+                'signal_type': 'Wavefunction'
+            },
+            'Instrument': {
+                'beam_energy': float(self.probe.eV),
+                'Detectors': {
+                    'Simulated': {
+                        'name': 'Multislice Simulation',
+                        'voltage_eV': float(self.probe.eV),
+                        'wavelength_A': float(self.probe.wavelength),
+                        'aperture_mrad': float(self.probe.mrad),
+                    }
+                },
+                'Scan': {
+                    'scan_uuid': None,
+                }
+            },
+            'Simulation': {
+                'voltage_eV': float(self.probe.eV),
+                'wavelength_A': float(self.probe.wavelength),
+                'aperture_mrad': float(self.probe.mrad),
+                'layer_index': int(layer_index),
+                'probe_positions': [list(p) for p in self.probe_positions],
+            }
+        }
+        metadata = GeneralMetadata(metadata_dict)
+
+        return Signal(
+            data=data,
+            name='WFData',
+            dimensions=dimensions,
+            signal_type='Diffraction',
+            metadata=metadata
+        )

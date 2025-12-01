@@ -5,7 +5,13 @@ from pathlib import Path
 import logging
 import pickle
 import hashlib
-from .wf_data import WFData
+from .wf_data import WFData, SEA_ECO_AVAILABLE
+
+# Optional sea-eco integration
+if SEA_ECO_AVAILABLE:
+    from pySEA.sea_eco.architecture.base_structure_numpy import (
+        Signal, Dimensions, Dimension, GeneralMetadata
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -41,19 +47,20 @@ class HAADFData(WFData):
         self.__dict__ = WFData.__dict__
 
     def calculateADF(self, inner_mrad: float = 45, outer_mrad = 150, preview: bool = False) -> np.ndarray:
-        self.xs=xp.asarray(sorted(list(set(self.probe_positions[:,0]))))
-        self.ys=xp.asarray(sorted(list(set(self.probe_positions[:,1]))))
-        self.adf=xp.zeros((len(self.xs),len(self.ys)))
+        # Use float_dtype to ensure MPS compatibility (float32 on MPS, float64 otherwise)
+        self.xs=xp.asarray(sorted(list(set(self.probe_positions[:,0]))), dtype=float_dtype)
+        self.ys=xp.asarray(sorted(list(set(self.probe_positions[:,1]))), dtype=float_dtype)
+        self.adf=xp.zeros((len(self.xs),len(self.ys)), dtype=float_dtype)
         q=xp.sqrt(self.kxs[:,None]**2+self.kys[None,:]**2)
         #print(np.shape(self.wavefunction_data),np.shape(q))
         radius_inner = (inner_mrad * 1e-3) / self.probe.wavelength
         radius_outer = (outer_mrad * 1e-3) / self.probe.wavelength
-        mask=xp.zeros(q.shape, device=self.array.device if TORCH_AVAILABLE else None)
+        mask=xp.zeros(q.shape, device=self.array.device if TORCH_AVAILABLE else None, dtype=float_dtype)
         mask[q>=radius_inner]=1 ; mask[q>=radius_outer]=0
-        probe_positions=xp.asarray(self.probe_positions)
+        probe_positions=xp.asarray(self.probe_positions, dtype=float_dtype)
         for i,x in enumerate(self.xs):
             for j,y in enumerate(self.ys):
-                dxy=xp.sqrt( xp.sum( (probe_positions-xp.asarray([x,y])[None,:])**2,axis=1 ) )
+                dxy=xp.sqrt( xp.sum( (probe_positions-xp.asarray([x,y], dtype=float_dtype)[None,:])**2,axis=1 ) )
                 p=xp.argmin(dxy)
                 exits=self.array[p,:,:,:,-1] # which probe position, all frames, kx, ky, last layer
                 if preview and i==0 and j==0:
@@ -82,3 +89,77 @@ class HAADFData(WFData):
             plt.savefig(filename)
         else:
             plt.show()
+
+    def to_signal(self, inner_mrad: float = 45, outer_mrad: float = 150) -> 'Signal':
+        """
+        Convert HAADFData to a sea-eco Signal object.
+
+        Args:
+            inner_mrad: Inner collection angle in milliradians (default: 45)
+            outer_mrad: Outer collection angle in milliradians (default: 150)
+
+        Returns:
+            Signal object containing the HAADF image with proper dimensions.
+
+        Raises:
+            ImportError: If sea-eco is not installed
+            RuntimeError: If calculateADF() hasn't been called yet
+        """
+        if not SEA_ECO_AVAILABLE:
+            raise ImportError(
+                "sea-eco package is required for to_signal(). "
+                "Install it with: pip install -e /path/to/sea-eco"
+            )
+
+        # Ensure ADF has been calculated
+        if not hasattr(self, 'adf') or self.adf is None:
+            self.calculateADF(inner_mrad=inner_mrad, outer_mrad=outer_mrad)
+
+        # Convert to numpy if needed
+        adf = self.adf
+        xs = self.xs
+        ys = self.ys
+        if TORCH_AVAILABLE:
+            if hasattr(adf, 'cpu'):
+                adf = adf.cpu().numpy()
+            if hasattr(xs, 'cpu'):
+                xs = xs.cpu().numpy()
+            if hasattr(ys, 'cpu'):
+                ys = ys.cpu().numpy()
+
+        dimensions = Dimensions([
+            Dimension(name='x', space='position', units='Å', values=np.asarray(xs)),
+            Dimension(name='y', space='position', units='Å', values=np.asarray(ys)),
+        ], nav_dimensions=[0, 1], sig_dimensions=[])
+
+        # Build metadata
+        metadata_dict = {
+            'General': {'title': 'HAADF Image', 'signal_type': 'HAADF'},
+            'Instrument': {
+                'beam_energy': float(self.probe.eV),
+                'Detectors': {
+                    'HAADF': {
+                        'name': 'HAADF Detector',
+                        'inner_mrad': inner_mrad,
+                        'outer_mrad': outer_mrad,
+                    }
+                },
+                'Scan': {'scan_uuid': None}
+            },
+            'Simulation': {
+                'voltage_eV': float(self.probe.eV),
+                'wavelength_A': float(self.probe.wavelength),
+                'aperture_mrad': float(self.probe.mrad),
+                'inner_mrad': inner_mrad,
+                'outer_mrad': outer_mrad,
+            }
+        }
+        metadata = GeneralMetadata(metadata_dict)
+
+        return Signal(
+            data=np.asarray(adf),
+            name='HAADF',
+            dimensions=dimensions,
+            signal_type='Image',
+            metadata=metadata
+        )
