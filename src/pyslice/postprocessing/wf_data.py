@@ -1,20 +1,11 @@
 """
 Wave function data structure.
 """
-from dataclasses import dataclass
 import numpy as np
 from typing import List, Tuple, Optional
 from ..multislice.multislice import Probe
+from ..data import Signal, Dimensions, Dimension, GeneralMetadata
 from pathlib import Path
-
-# Optional sea-eco integration
-try:
-    from pySEA.sea_eco.architecture.base_structure_numpy import (
-        Signal, Dimensions, Dimension, GeneralMetadata
-    )
-    SEA_ECO_AVAILABLE = True
-except ImportError:
-    SEA_ECO_AVAILABLE = False
 
 try:
     import torch ; xp = torch
@@ -39,29 +30,186 @@ except ImportError:
     float_dtype = np.float64
 
 
-@dataclass
-class WFData:
+class WFData(Signal):
     """
     Data structure for wave function data with format: probe_positions, frame, kx, ky, layer.
 
+    Inherits from Signal for sea-eco compatibility.
+
     Attributes:
         probe_positions: List of (x,y) probe positions in Angstroms.
-        frame: Time array (frame # * timestep) in picoseconds.
-        kx: kx sampling vectors.
-        ky: ky sampling vectors.
+        time: Time array (frame # * timestep) in picoseconds.
+        kxs: kx sampling vectors.
+        kys: ky sampling vectors.
+        xs: x real-space coordinates.
+        ys: y real-space coordinates.
         layer: Layer indices for multi-layer calculations.
         array: Complex wavefunction array with shape (probe_positions, time, kx, ky, layer).
+        probe: Probe object with beam parameters.
+        cache_dir: Path to cache directory.
     """
-    probe_positions: List[Tuple[float, float]]
-    time: np.ndarray  # Time in picoseconds (frame # * timestep)
-    kxs: np.ndarray    # kx sampling vectors
-    kys: np.ndarray    # ky sampling vectors
-    xs: np.ndarray
-    ys: np.ndarray
-    layer: np.ndarray # Layer indices
-    array: np.ndarray  # Complex reciprocal-space wavefunction array (probe_positions, time, kx, ky, layer)
-    probe: Probe
-    cache_dir: Path
+
+    def __init__(
+        self,
+        probe_positions: List[Tuple[float, float]],
+        time: np.ndarray,
+        kxs: np.ndarray,
+        kys: np.ndarray,
+        xs: np.ndarray,
+        ys: np.ndarray,
+        layer: np.ndarray,
+        array: np.ndarray,
+        probe: Probe,
+        cache_dir: Path,
+    ):
+        # Store raw attributes (may be tensors for GPU operations)
+        self.probe_positions = probe_positions
+        self._time = time
+        self._kxs = kxs
+        self._kys = kys
+        self._xs = xs
+        self._ys = ys
+        self._layer = layer
+        self.probe = probe
+        self.cache_dir = cache_dir
+
+        # Helper to convert tensors to numpy for Dimensions
+        def to_numpy(x):
+            if hasattr(x, 'cpu'):
+                return x.cpu().numpy()
+            return np.asarray(x)
+
+        # Build Dimensions for Signal
+        time_arr = to_numpy(time)
+        kxs_arr = to_numpy(kxs)
+        kys_arr = to_numpy(kys)
+        layer_arr = to_numpy(layer) if layer is not None else np.array([0])
+
+        dimensions = Dimensions([
+            Dimension(name='probe', space='position',
+                     values=np.arange(len(probe_positions))),
+            Dimension(name='time', space='temporal', units='ps',
+                     values=time_arr),
+            Dimension(name='kx', space='scattering', units='Å⁻¹',
+                     values=kxs_arr),
+            Dimension(name='ky', space='scattering', units='Å⁻¹',
+                     values=kys_arr),
+            Dimension(name='layer', space='position',
+                     values=layer_arr),
+        ], nav_dimensions=[0, 1], sig_dimensions=[2, 3, 4])
+
+        # Build metadata from simulation parameters
+        # Flatten probe_positions for HDF5 compatibility, store n_probes to reshape on load
+        pp_array = np.array(probe_positions).flatten().tolist()
+        metadata_dict = {
+            'General': {
+                'title': 'Multislice Wavefunction',
+                'signal_type': 'Wavefunction'
+            },
+            'Simulation': {
+                'voltage_eV': float(probe.eV),
+                'wavelength_A': float(probe.wavelength),
+                'aperture_mrad': float(probe.mrad),
+                'probe_positions': pp_array,
+                'n_probes': len(probe_positions),
+            }
+        }
+        metadata = GeneralMetadata(metadata_dict)
+
+        # Initialize Signal base class (must be called before setting _array
+        # because Signal.__init__ sets self.data which calls our setter)
+        super().__init__(
+            data=None,
+            name='WFData',
+            dimensions=dimensions,
+            signal_type='Diffraction',
+            metadata=metadata
+        )
+
+        # Store array AFTER super().__init__ to avoid being overwritten
+        self._array = array
+
+    @property
+    def data(self):
+        """Lazy conversion to numpy for Signal compatibility."""
+        if self._array is None:
+            return None
+        if hasattr(self._array, 'cpu'):
+            return self._array.cpu().numpy()
+        return np.asarray(self._array)
+
+    @data.setter
+    def data(self, value):
+        self._array = value
+
+    @property
+    def array(self):
+        """Backward compatible alias for internal array (may be tensor or numpy)."""
+        return self._array
+
+    @array.setter
+    def array(self, value):
+        self._array = value
+
+    def __getattr__(self, name):
+        """Auto-convert coordinate arrays from tensor to numpy on access."""
+        coord_attrs = {'time', 'kxs', 'kys', 'xs', 'ys', 'layer'}
+        if name in coord_attrs:
+            raw = object.__getattribute__(self, f'_{name}')
+            if raw is None:
+                return None
+            if hasattr(raw, 'cpu'):
+                return raw.cpu().numpy()
+            return np.asarray(raw)
+        raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+
+    def to_hdf5_group(self, parent_group, force_datasets=['data'], name=None):
+        """Override to convert tensors to numpy and exclude non-serializable attrs."""
+        # Put numpy data directly in __dict__ for serialization
+        # (to_dict pulls from __dict__, not properties)
+        if hasattr(self._array, 'cpu'):
+            self.__dict__['data'] = self._array.cpu().numpy()
+        else:
+            self.__dict__['data'] = np.asarray(self._array)
+
+        # Temporarily remove non-serializable attributes (but keep _array for data property)
+        orig_probe = self.probe
+        orig_cache_dir = self.cache_dir
+        orig_probe_positions = self.probe_positions
+        orig_kxs = self._kxs
+        orig_kys = self._kys
+        orig_time = self._time
+        orig_xs = self._xs
+        orig_ys = self._ys
+        orig_layer = self._layer
+
+        del self.probe
+        del self.cache_dir
+        del self.probe_positions
+        del self._kxs
+        del self._kys
+        del self._time
+        del self._xs
+        del self._ys
+        del self._layer
+        # Note: DON'T delete _array - the data property depends on it for hasattr check
+
+        # Call parent implementation
+        result = super().to_hdf5_group(parent_group, force_datasets=force_datasets, name=name)
+
+        # Restore all original attributes and clean up
+        del self.__dict__['data']  # Remove the temp data from __dict__
+        self.probe = orig_probe
+        self.cache_dir = orig_cache_dir
+        self.probe_positions = orig_probe_positions
+        self._kxs = orig_kxs
+        self._kys = orig_kys
+        self._time = orig_time
+        self._xs = orig_xs
+        self._ys = orig_ys
+        self._layer = orig_layer
+
+        return result
 
     def plot_reciprocal(self,filename=None,whichProbe=0,whichTimestep=0,powerscaling=0.25,extent=None,avg=False,nuke_zerobeam=False):
         import matplotlib.pyplot as plt
@@ -69,13 +217,13 @@ class WFData:
 
         if avg:
             # Average over all timesteps
-            array = self.array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
+            array = self._array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
             if hasattr(array, 'mean'):  # torch tensor
                 array = array.mean(dim=0)  # Average over time dimension
             else:  # numpy array
                 array = np.mean(array, axis=0)
         else:
-            array = self.array[whichProbe,whichTimestep,:,:,-1] # Shape: (kx, ky)
+            array = self._array[whichProbe,whichTimestep,:,:,-1] # Shape: (kx, ky)
 
         # Convert kxs and kys to numpy for indexing
         if hasattr(self.kxs, 'cpu'):
@@ -143,13 +291,13 @@ class WFData:
 
         # Get array (with or without averaging)
         if avg:
-            array = self.array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
+            array = self._array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
             if hasattr(array, 'mean'):  # torch tensor
                 array = array.mean(dim=0)  # Average over time dimension
             else:  # numpy array
                 array = np.mean(array, axis=0)
         else:
-            array = self.array[whichProbe,whichTimestep,:,:,-1]
+            array = self._array[whichProbe,whichTimestep,:,:,-1]
 
         # Transform to real space
         array = xp.fft.ifft2(array)
@@ -202,13 +350,13 @@ class WFData:
 
         # Get array (with or without averaging)
         if avg:
-            array = self.array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
+            array = self._array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
             if hasattr(array, 'mean'):  # torch tensor
                 array = array.mean(dim=0)  # Average over time dimension
             else:  # numpy array
                 array = np.mean(array, axis=0)
         else:
-            array = self.array[whichProbe,whichTimestep,:,:,-1]
+            array = self._array[whichProbe,whichTimestep,:,:,-1]
 
         array = array.T # imshow convention: y,x. our convention: x,y
         array = xp.fft.ifft2(array)
@@ -228,130 +376,27 @@ class WFData:
         plt.show()
 
     def propagate_free_space(self,dz): # UNITS OF ANGSTROM
-        kx_grid, ky_grid = xp.meshgrid(self.kxs, self.kys, indexing='ij')
+        kx_grid, ky_grid = xp.meshgrid(self._kxs, self._kys, indexing='ij')
         k_squared = kx_grid**2 + ky_grid**2
         P = xp.exp(-1j * xp.pi * self.probe.wavelength * dz * k_squared)
-        if TORCH_AVAILABLE and isinstance(self.array, torch.Tensor):
-            P = P.to(self.array.device)
+        if TORCH_AVAILABLE and isinstance(self._array, torch.Tensor):
+            P = P.to(self._array.device)
         #if dz>0:
-        self.array = P[None,None,:,:,None] * self.array
+        self._array = P[None,None,:,:,None] * self._array
 
     def applyMask(self, radius, realOrReciprocal="reciprocal"):
         if realOrReciprocal == "reciprocal":
-            radii = xp.sqrt( self.kxs[:,None]**2 + self.kys[None,:]**2 )
-            mask = xp.zeros(radii.shape, device=self.array.device if TORCH_AVAILABLE else None)
+            radii = xp.sqrt( self._kxs[:,None]**2 + self._kys[None,:]**2 )
+            mask = xp.zeros(radii.shape, device=self._array.device if TORCH_AVAILABLE else None)
             mask[radii<radius]=1
-            self.array*=mask[None,None,:,:,None]
+            self._array*=mask[None,None,:,:,None]
         else:
-            radii = np.sqrt( ( self.xs[:,None] - np.mean(self.xs) )**2 +\
-                ( self.ys[None,:] - np.mean(self.ys) )**2 )
-            mask = xp.zeros(radii.shape, device=self.array.device if TORCH_AVAILABLE else None)
+            radii = xp.sqrt( ( self._xs[:,None] - xp.mean(self._xs) )**2 +\
+                ( self._ys[None,:] - xp.mean(self._ys) )**2 )
+            mask = xp.zeros(radii.shape, device=self._array.device if TORCH_AVAILABLE else None)
             mask[radii<radius]=1
             kwarg = {"dim":(2,3)} if TORCH_AVAILABLE else {"axes":(2,3)}
-            real = xp.fft.ifft2(xp.fft.ifftshift(self.array,**kwarg),**kwarg)
+            real = xp.fft.ifft2(xp.fft.ifftshift(self._array,**kwarg),**kwarg)
             real *= mask[None,None,:,:,None]
-            self.array = xp.fft.fftshift(xp.fft.fft2(real,**kwarg),**kwarg)
+            self._array = xp.fft.fftshift(xp.fft.fft2(real,**kwarg),**kwarg)
 
-    def to_signal(self, layer_index: int = -1, probe_index: Optional[int] = None) -> 'Signal':
-        """
-        Convert WFData to a sea-eco Signal object.
-
-        Args:
-            layer_index: Which layer to export (default: -1, last layer)
-            probe_index: Which probe position to export. If None, exports all probes.
-
-        Returns:
-            Signal object containing the wavefunction data with proper dimensions
-
-        Raises:
-            ImportError: If sea-eco is not installed
-        """
-        if not SEA_ECO_AVAILABLE:
-            raise ImportError(
-                "sea-eco package is required for to_signal(). "
-                "Install it with: pip install -e /path/to/sea-eco"
-            )
-
-        # Convert array to numpy if needed
-        array = self.array
-        if TORCH_AVAILABLE and hasattr(array, 'cpu'):
-            array = array.cpu().numpy()
-
-        # Helper to convert tensors to numpy
-        def to_numpy(x):
-            if hasattr(x, 'cpu'):
-                return x.cpu().numpy()
-            return np.asarray(x)
-
-        # Convert coordinate arrays
-        time_arr = to_numpy(self.time)
-        kxs_arr = to_numpy(self.kxs)
-        kys_arr = to_numpy(self.kys)
-
-        # Extract the specified layer
-        if probe_index is not None:
-            # Single probe: shape becomes (time, kx, ky)
-            data = array[probe_index, :, :, :, layer_index]
-            probe_pos = self.probe_positions[probe_index]
-
-            dimensions = Dimensions([
-                Dimension(name='time', space='temporal', units='ps',
-                         values=time_arr),
-                Dimension(name='kx', space='scattering', units='Å⁻¹',
-                         values=kxs_arr),
-                Dimension(name='ky', space='scattering', units='Å⁻¹',
-                         values=kys_arr),
-            ], nav_dimensions=[0], sig_dimensions=[1, 2])
-        else:
-            # All probes: shape is (probe, time, kx, ky)
-            data = array[:, :, :, :, layer_index]
-            probe_pos = self.probe_positions
-
-            dimensions = Dimensions([
-                Dimension(name='probe', space='position', units='Å',
-                         values=np.arange(len(self.probe_positions))),
-                Dimension(name='time', space='temporal', units='ps',
-                         values=time_arr),
-                Dimension(name='kx', space='scattering', units='Å⁻¹',
-                         values=kxs_arr),
-                Dimension(name='ky', space='scattering', units='Å⁻¹',
-                         values=kys_arr),
-            ], nav_dimensions=[0, 1], sig_dimensions=[2, 3])
-
-        # Build metadata from simulation parameters
-        metadata_dict = {
-            'General': {
-                'title': 'Multislice Wavefunction',
-                'signal_type': 'Wavefunction'
-            },
-            'Instrument': {
-                'beam_energy': float(self.probe.eV),
-                'Detectors': {
-                    'Simulated': {
-                        'name': 'Multislice Simulation',
-                        'voltage_eV': float(self.probe.eV),
-                        'wavelength_A': float(self.probe.wavelength),
-                        'aperture_mrad': float(self.probe.mrad),
-                    }
-                },
-                'Scan': {
-                    'scan_uuid': None,
-                }
-            },
-            'Simulation': {
-                'voltage_eV': float(self.probe.eV),
-                'wavelength_A': float(self.probe.wavelength),
-                'aperture_mrad': float(self.probe.mrad),
-                'layer_index': int(layer_index),
-                'probe_positions': [list(p) for p in self.probe_positions],
-            }
-        }
-        metadata = GeneralMetadata(metadata_dict)
-
-        return Signal(
-            data=data,
-            name='WFData',
-            dimensions=dimensions,
-            signal_type='Diffraction',
-            metadata=metadata
-        )
