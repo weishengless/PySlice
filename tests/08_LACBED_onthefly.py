@@ -47,7 +47,7 @@ calculator.base_probe.defocus(-1000)
 exitwaves = calculator.run()
 exitwaves.propagate_free_space(1000-calculator.lz)
 exitwaves.applyMask(5,"real")
-exitwaves.plot_reciprocalspace("outputs/figs/08_LACBED_onthefly.png")
+exitwaves.plot_reciprocal("outputs/figs/08_LACBED_onthefly.png")
 
 ary=exitwaves.array
 

@@ -391,8 +391,13 @@ class WFData(Signal):
             mask[radii<radius]=1
             self._array*=mask[None,None,:,:,None]
         else:
-            radii = xp.sqrt( ( self._xs[:,None] - xp.mean(self._xs) )**2 +\
-                ( self._ys[None,:] - xp.mean(self._ys) )**2 )
+            # Use numpy for _xs/_ys since they're numpy arrays, then convert result
+            radii_np = np.sqrt( ( self._xs[:,None] - np.mean(self._xs) )**2 +\
+                ( self._ys[None,:] - np.mean(self._ys) )**2 )
+            if TORCH_AVAILABLE:
+                radii = xp.tensor(radii_np, dtype=self._array.real.dtype, device=self._array.device)
+            else:
+                radii = radii_np
             mask = xp.zeros(radii.shape, device=self._array.device if TORCH_AVAILABLE else None)
             mask[radii<radius]=1
             kwarg = {"dim":(2,3)} if TORCH_AVAILABLE else {"axes":(2,3)}

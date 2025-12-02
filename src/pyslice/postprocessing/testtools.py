@@ -1,7 +1,10 @@
 import os
 import numpy as np
+from pyslice.backend import to_cpu
 
 def differ(ary,filename,label):
+	# Convert GPU tensors to numpy
+	ary = to_cpu(ary)
 	if not os.path.exists(filename):
 		print("diff npy file does not exist. creating anew")
 		np.save(filename,ary)

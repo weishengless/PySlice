@@ -269,7 +269,7 @@ class Probe:
                 C,phi0 = C
             dPhi += 2*xp.pi/self.wavelength * \
                 (1/(n+1)) * C * ( ks * self.wavelength ) ** (n+1) * \
-                np.cos( m * (theta-phi0) )
+                xp.cos( m * (theta-phi0) )
 		
         # recall, in __init__, we created the real-space array via:
         # self.array = xp.fft.ifftshift(xp.fft.ifft2(reciprocal))

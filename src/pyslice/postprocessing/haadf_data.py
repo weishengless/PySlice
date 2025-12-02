@@ -203,7 +203,7 @@ class HAADFData(Signal):
             self.metadata.Simulation.inner_mrad = inner_mrad
             self.metadata.Simulation.outer_mrad = outer_mrad
 
-        return self._array
+        return self.data  # Return numpy array for backward compatibility
 
     def plot(self, filename=None):
         """
