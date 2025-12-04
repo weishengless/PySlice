@@ -545,3 +545,29 @@ class TACAWData(Signal):
         else:
             plt.show()
 
+
+class SEDData(TACAWData):
+    """
+    Data structure for SED (Spectral Energy Density) calculations.
+
+    Functionally identical to TACAWData - both compute |Ψ(ω,q)|² from time-domain wavefunction data
+    via FFT along the time axis.
+
+    Attributes:
+        probe_positions: List of (x,y) probe positions in Angstroms.
+        frequencies: Frequencies in THz.
+        kxs: kx sampling vectors (e.g., in Å⁻¹).
+        kys: ky sampling vectors (e.g., in Å⁻¹).
+        intensity: Intensity array |Ψ(ω,q)|² (probe_positions, frequency, kx, ky).
+    """
+
+    def __init__(self, wf_data: WFData, layer_index: int = None, keep_complex: bool = False) -> None:
+        """
+        Initialize SEDData from WFData by performing FFT.
+
+        Args:
+            wf_data: WFData object containing wavefunction data
+            layer_index: Index of the layer to compute FFT for (default: last layer)
+            keep_complex: If True, keep complex FFT result instead of intensity
+        """
+        super().__init__(wf_data, layer_index, keep_complex)
