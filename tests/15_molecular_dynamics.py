@@ -34,14 +34,16 @@ from pyslice.postprocessing.tacaw_data import TACAWData
 
 # OPTION: Load trajectory from cache instead of running MD
 # Set to True to skip MD and load from previous run
-LOAD_FROM_CACHE = False
+LOAD_FROM_CACHE = True
 OUTPUT_DIR = "tests/outputs/md_output"
 
 if LOAD_FROM_CACHE and os.path.exists(f"{OUTPUT_DIR}/production.traj"):
     print("=" * 70)
     print("LOADING TRAJECTORY FROM CACHE")
     print("=" * 70)
-    loader = Loader(filename=f"{OUTPUT_DIR}/production.traj", timestep=0.001)
+    loader = Loader(
+        filename=f"{OUTPUT_DIR}/production.traj", timestep=0.01
+    )  # 5fs MD × 2 save_interval = 10fs = 0.01ps
     trajectory = loader.load()
     print(
         f"Loaded trajectory: {trajectory.n_frames} frames, {trajectory.n_atoms} atoms"
@@ -55,10 +57,11 @@ else:
     print("=" * 70)
     print("MOLECULAR DYNAMICS TEST")
     print("=" * 70)
-    print("\nCreating test system (Si)...")
+    print("\nCreating test system (bulk Si [001])...")
 
-    # Create orthogonal diamond structure
-    atoms = bulk("Si", "diamond", a=5.43, orthorhombic=True) * (30, 30, 3)
+    # Create bulk Si diamond cubic, a = 5.431 Å
+    atoms = bulk("Si", crystalstructure="diamond", a=5.431, cubic=True)
+    atoms = atoms * (20, 20, 1)  # 20x20x1 supercell = 3200 atoms
     print(f"System: {len(atoms)} atoms")
     print(f"Cell:\n{atoms.get_cell()}")
 
@@ -74,7 +77,12 @@ else:
         device = "cpu"
 
     print(f"\nInitializing MDCalculator on {device}...")
-    md_calc = MDCalculator(model_name="orb-v3-direct-20-omat", device=device)
+    # Use most accurate ORB model for better phonon frequencies
+    md_calc = MDCalculator(
+        model_name="orb-v3-conservative-inf-omat",
+        device=device,
+        precision="float32-highest",
+    )
 
     # SETUP SIMULATION
     print("Setting up MD simulation...")
@@ -83,13 +91,16 @@ else:
         temperature=300,
         timestep=5.0,
         ensemble="nvt",
-        friction=0.15,
-        temp_tolerance=5.0,
-        temp_threshold=5.0,
+        friction=0.2,  # Moderate friction for equilibration (less noise than 0.5)
+        production_ensemble="nvt",  # Keep NVT for production (ORB doesn't conserve energy perfectly)
+        production_friction=0.01,  # Very low friction for near-NVE dynamics with energy stabilization
+        production_relaxation_steps=100,  # Let thermostat artifacts decay (100 steps = 500 fs)
+        temp_tolerance=5.0,  # Tolerance for mean temperature (K)
+        temp_threshold=5.0,  # Threshold for temperature std dev (K)
         energy_threshold=0.05,
         min_equilibration_steps=100,
         max_equilibration_steps=10000,
-        production_steps=2000,
+        production_steps=1000,  # 1000 steps * 5fs = 5ps total, 500 frames @ 0.01ps = 0.2 THz resolution
         check_interval=10,
         save_interval=2,
         output_dir=OUTPUT_DIR,
@@ -158,7 +169,9 @@ print("\n" + "=" * 70)
 print("TESTING ASE TO PYSLICE CONVERSION")
 print("=" * 70)
 
-loader = Loader(filename=traj_file, timestep=0.001)
+loader = Loader(
+    filename=traj_file, timestep=0.01
+)  # 5fs MD × 2 save_interval = 10fs = 0.01ps
 loaded_trajectory = loader.load()
 assert loaded_trajectory.n_frames == trajectory.n_frames
 assert loaded_trajectory.n_atoms == trajectory.n_atoms
@@ -243,6 +256,7 @@ print("TACAW CALCULATION")
 print("=" * 70)
 
 print(f"Using {trajectory.n_frames} frames for TACAW calculation")
+print(f"Box matrix:\n{trajectory.box_matrix}")
 
 # Setup multislice calculator for parallel beam (aperture=0)
 calculator = MultisliceCalculator()
@@ -256,17 +270,127 @@ calculator.setup(
 
 print("Running multislice calculation...")
 exitwaves = calculator.run()
-
+exitwaves.plot(nuke_zerobeam=True, powerscaling=0.125)
 print("Computing TACAW spectrum...")
 tacaw = TACAWData(exitwaves)
 
-# Plot spectral diffraction at 5 THz
-frequency_THz = 5.0  # THz
-Z = tacaw.spectral_diffraction(frequency_THz)
+# Plot spectral diffraction at multiple frequencies
+# Si diamond cubic (FCC lattice), a = 5.431 Å, viewed along [001]
+# NOTE: fftfreq returns ordinary frequency (cycles/Å), not angular frequency (rad/Å)
+# So BZ width = 2/a (not 2π/a) for FCC along [100]
+# FCC reciprocal lattice is BCC, nearest G-vector along [100] is at 2/a
+a_Si = 5.431
+k_X = 1 / a_Si  # ≈ 0.184 Å⁻¹ (Γ to X in cycles/Å, half BZ width)
+k_BZ = 2 * k_X  # ≈ 0.368 Å⁻¹ (full BZ width along [100] in cycles/Å)
+n_BZ = 6
+k_extent = n_BZ * k_X  # half-width for plotting ±k_extent (n_BZ zones total)
+print(f"BZ width: {k_BZ:.3f} Å⁻¹, Γ→X: {k_X:.3f} Å⁻¹, showing {n_BZ} BZ (±{k_extent:.3f} Å⁻¹)")
 
-tacaw.plot(Z**0.1, "kx", "ky", filename=f"{OUTPUT_DIR}/tacaw_spectral.png")
+# Get kx and ky arrays
+kxs = tacaw.kxs
+kys = tacaw.kys
 
+# Find indices for the displayed k-extent region (crop to avoid interpolation blur)
+kx_mask = (kxs >= -k_extent) & (kxs <= k_extent)
+ky_mask = (kys >= -k_extent) & (kys <= k_extent)
+kxs_crop = kxs[kx_mask]
+kys_crop = kys[ky_mask]
 
+# Plot multiple frequencies - Si phonons up to ~15 THz
+frequencies_THz = [1.0, 2.0, 5.0, 6.0, 10.0, 15.0]
+n_freq = len(frequencies_THz)
+n_cols = 3
+n_rows = (n_freq + n_cols - 1) // n_cols
+
+fig, axs = plt.subplots(n_rows, n_cols, figsize=(12, 8))
+axs = axs.flatten()
+
+for i, freq in enumerate(frequencies_THz):
+    Z = tacaw.spectral_diffraction(freq)
+
+    # Nuke the zero beam (kx=0, ky=0) before cropping
+    kx_zero_idx = np.argmin(np.abs(kxs))
+    ky_zero_idx = np.argmin(np.abs(kys))
+    Z[kx_zero_idx, ky_zero_idx] = 0
+
+    # Crop to displayed region
+    Z_crop = Z[kx_mask, :][:, ky_mask]
+
+    axs[i].imshow(
+        Z_crop.T**0.25,
+        cmap="inferno",
+        extent=(kxs_crop.min(), kxs_crop.max(), kys_crop.min(), kys_crop.max()),
+        origin="lower",
+        aspect="equal",
+        interpolation="nearest",
+    )
+    axs[i].set_title(f"{freq} THz")
+    axs[i].set_xlabel("kx (Å⁻¹)")
+    axs[i].set_ylabel("ky (Å⁻¹)")
+
+# Hide empty subplots
+for i in range(n_freq, len(axs)):
+    axs[i].axis("off")
+
+plt.tight_layout()
+plt.savefig(f"{OUTPUT_DIR}/tacaw_spectral_multi.png", dpi=150)
+print(f"Saved TACAW spectral diffraction plots: {OUTPUT_DIR}/tacaw_spectral_multi.png")
+
+# DISPERSION PLOT along kx at ky=0 using native resolution
 print("\n" + "=" * 70)
-print("ALL TESTS PASSED!")
+print("DISPERSION PLOT")
 print("=" * 70)
+
+# Use native kx sampling - no resampling/interpolation
+# Find ky index closest to 0
+ky_zero_idx = np.argmin(np.abs(kys))
+print(f"Using ky = {kys[ky_zero_idx]:.4f} Å⁻¹ (index {ky_zero_idx})")
+
+# Get frequencies (positive only, limited to 20 THz for Si phonons)
+max_freq = 20.0  # THz - Si optical phonons are ~15 THz
+frequencies = tacaw.frequencies
+freq_mask = (frequencies >= 0) & (frequencies <= max_freq)
+frequencies_display = frequencies[freq_mask]
+
+# Extract dispersion: intensity[probe, freq, kx, ky] -> sum over probes, select ky=0
+# Use .data to get numpy array
+intensity = tacaw.data  # shape: (n_probes, n_freq, n_kx, n_ky)
+dispersion_full = np.mean(intensity[:, :, :, ky_zero_idx], axis=0)  # average over probes
+dispersion_freq = dispersion_full[freq_mask, :]  # frequency-limited
+
+# Crop kx to display range
+kx_display_mask = (kxs >= -k_extent) & (kxs <= k_extent)
+kxs_display = kxs[kx_display_mask]
+dispersion_crop = dispersion_freq[:, kx_display_mask]
+
+# Nuke zero beam (kx=0)
+kx_zero_display_idx = np.argmin(np.abs(kxs_display))
+dispersion_crop[:, kx_zero_display_idx] = 0
+
+print(f"Dispersion shape: {dispersion_crop.shape} (freq × kx)")
+print(f"Frequency range: {frequencies_display.min():.2f} to {frequencies_display.max():.2f} THz")
+print(f"kx range: {kxs_display.min():.3f} to {kxs_display.max():.3f} Å⁻¹")
+
+# Plot dispersion
+fig, ax = plt.subplots(figsize=(10, 6))
+im = ax.imshow(
+    dispersion_crop**0.25,  # power scaling for visibility
+    cmap="inferno",
+    extent=(kxs_display.min(), kxs_display.max(), frequencies_display.min(), frequencies_display.max()),
+    origin="lower",
+    aspect="auto",
+    interpolation="nearest",
+)
+ax.set_xlabel("kx (Å⁻¹)")
+ax.set_ylabel("Frequency (THz)")
+ax.set_title(f"Phonon Dispersion along [100] (ky=0, {n_BZ} BZ)")
+
+# Add BZ boundary markers at X points (±k_X, ±2k_X, ±3k_X, ...)
+for i in range(-n_BZ, n_BZ + 1):
+    if i != 0:
+        ax.axvline(x=i * k_X, color="white", linestyle="--", alpha=0.3, linewidth=0.5)
+
+plt.colorbar(im, ax=ax, label="Intensity$^{0.25}$")
+plt.tight_layout()
+plt.savefig(f"{OUTPUT_DIR}/tacaw_dispersion.png", dpi=150)
+print(f"Saved dispersion plot: {OUTPUT_DIR}/tacaw_dispersion.png")

@@ -67,27 +67,20 @@ class MDConvergenceChecker:
         self.temperatures.append(temp)
         self.energies.append(energy)
 
-        # Check if average temperature has reached target (need enough samples)
-        if not self.reached_target and self.steps >= self.temp_window:
-            recent_temps = self.temperatures[-self.temp_window:]
-            avg_temp = np.mean(recent_temps)
-            if avg_temp >= self.target_temperature:
-                self.reached_target = True
-                logger.info(f"Average temperature reached target: <T>={avg_temp:.1f}K (target: {self.target_temperature}K)")
+        # Check if instantaneous temperature has ever reached target
+        if not self.reached_target and temp >= self.target_temperature:
+            self.reached_target = True
+            logger.info(f"Temperature reached target: T={temp:.1f}K (target: {self.target_temperature}K)")
 
     def check_convergence(self):
         """Check if system has converged/equilibrated."""
         if self.steps < self.min_steps:
             return False, "Not enough steps"
 
-        # Must have reached the target average temperature
+        # Must have hit the target temperature at least once
         if not self.reached_target:
-            if self.steps >= self.temp_window:
-                recent_temps = self.temperatures[-self.temp_window:]
-                temp_mean = np.mean(recent_temps)
-                return False, f"<T>={temp_mean:.1f}K - average not yet at target {self.target_temperature:.1f}K"
-            else:
-                return False, f"Collecting temperature samples ({self.steps}/{self.temp_window})"
+            max_temp = max(self.temperatures) if self.temperatures else 0
+            return False, f"max(T)={max_temp:.1f}K - target {self.target_temperature:.1f}K not yet reached"
 
         # Check temperature stability
         recent_temps = self.temperatures[-self.temp_window:]
@@ -135,16 +128,18 @@ class MDCalculator:
     Integrates with PySlice's Trajectory and Loader infrastructure.
     """
 
-    def __init__(self, model_name: str = 'orb-v3-direct-inf-omat', device: str = 'cpu'):
+    def __init__(self, model_name: str = 'orb-v3-direct-inf-omat', device: str = 'cpu', precision: str = 'float32-high'):
         """
         Initialize MD calculator.
 
         Args:
             model_name: ORB model to use
             device: Device for ORB calculations ('cpu', 'cuda', etc.)
+            precision: Precision for ORB calculations ('float32-high', 'float32-highest', etc.)
         """
         self.model_name = model_name
         self.device = device
+        self.precision = precision
         self.calculator = None
 
         # Available ORB models
@@ -178,11 +173,11 @@ class MDCalculator:
             if self.device == 'mps':
                 logger.info("MPS detected: loading on CPU, converting to float32, moving to MPS...")
                 # compile=False required for MPS (dynamo has float64 issues)
-                orbff = model_func(device='cpu', precision="float32-high", compile=False)
+                orbff = model_func(device='cpu', precision=self.precision, compile=False)
                 orbff = orbff.float()  # Ensure float32 (MPS doesn't support float64)
                 orbff = orbff.to('mps')
             else:
-                orbff = model_func(device=self.device, precision="float32-high")
+                orbff = model_func(device=self.device, precision=self.precision)
 
             self.calculator = ORBCalculator(orbff)
 
@@ -201,6 +196,9 @@ class MDCalculator:
         ensemble: str = 'nvt',
         pressure: float = 1.01325,
         friction: float = 0.02,
+        production_ensemble: Optional[str] = None,
+        production_friction: Optional[float] = None,
+        production_relaxation_steps: int = 0,
         temp_threshold: float = 5.0,
         temp_tolerance: float = 20.0,
         energy_threshold: float = 0.01,
@@ -219,9 +217,16 @@ class MDCalculator:
             atoms: ASE Atoms object
             temperature: Target temperature (K)
             timestep: MD timestep (fs)
-            ensemble: 'nvt', 'npt', or 'nve'
+            ensemble: 'nvt', 'npt', or 'nve' (for equilibration)
             pressure: Target pressure for NPT (bar)
-            friction: Friction coefficient for Langevin thermostat (fs^-1)
+            friction: Friction coefficient for Langevin thermostat during equilibration (fs^-1)
+            production_ensemble: Ensemble for production run (default: same as equilibration)
+                                 Use 'nve' for noise-free dynamics suitable for TACAW analysis
+            production_friction: Friction for production run (default: same as equilibration)
+                                 Use lower value (e.g., 0.01) for cleaner dynamics
+            production_relaxation_steps: Number of steps to run after switching ensemble but before
+                                        recording trajectory. Allows thermostat artifacts to decay.
+                                        Recommended: 100 steps for NVE after high-friction NVT
             temp_threshold: Max std dev of temperature for equilibration (K)
             temp_tolerance: Max deviation of mean temperature from target for equilibration (K)
             energy_threshold: Max relative std dev of energy for equilibration
@@ -239,6 +244,9 @@ class MDCalculator:
         self.ensemble = ensemble
         self.pressure = pressure
         self.friction = friction
+        self.production_ensemble = production_ensemble if production_ensemble is not None else ensemble
+        self.production_friction = production_friction if production_friction is not None else friction
+        self.production_relaxation_steps = production_relaxation_steps
         self.temp_threshold = temp_threshold
         self.temp_tolerance = temp_tolerance
         self.energy_threshold = energy_threshold
@@ -428,14 +436,47 @@ class MDCalculator:
         logger.info("PRODUCTION PHASE")
         logger.info("="*70)
 
+        # Switch to production ensemble if different from equilibration
+        if self.production_ensemble != self.ensemble or self.production_friction != self.friction:
+            logger.info(f"Switching from {self.ensemble.upper()} (friction={self.friction}) to "
+                       f"{self.production_ensemble.upper()} (friction={self.production_friction}) for production")
+
+            if self.production_ensemble.lower() == 'nvt':
+                self.dyn = Langevin(self.atoms, self.timestep * units.fs,
+                                  temperature_K=self.temperature, friction=self.production_friction)
+            elif self.production_ensemble.lower() == 'npt':
+                self.dyn = NPT(self.atoms, self.timestep * units.fs,
+                             temperature_K=self.temperature,
+                             externalstress=self.pressure,
+                             ttime=25*units.fs,
+                             pfactor=75*units.fs**2)
+            elif self.production_ensemble.lower() == 'nve':
+                from ase.md.verlet import VelocityVerlet
+                self.dyn = VelocityVerlet(self.atoms, self.timestep * units.fs)
+                logger.info("  NVE ensemble: microcanonical dynamics (no thermostat noise)")
+            else:
+                logger.warning(f"Unknown production ensemble {self.production_ensemble}, keeping current")
+
+        # Run relaxation period to let thermostat artifacts decay
+        if self.production_relaxation_steps > 0:
+            logger.info(f"\nRunning {self.production_relaxation_steps} relaxation steps to remove thermostat artifacts...")
+            for step in range(self.production_relaxation_steps):
+                self.dyn.run(1)
+                if (step + 1) % 50 == 0:
+                    temp = self.atoms.get_temperature()
+                    logger.info(f"  Relaxation step {step + 1}/{self.production_relaxation_steps}: T={temp:.1f}K")
+            logger.info(f"Relaxation complete. Starting recorded production run.\n")
+
         # Open log and trajectory
         log = open(log_file, 'w')
         log.write(f"# ORB MD Production\n")
         log.write(f"# System: {len(self.atoms)} atoms\n")
-        log.write(f"# Ensemble: {self.ensemble.upper()}\n")
+        log.write(f"# Ensemble: {self.production_ensemble.upper()}\n")
         log.write(f"# Temperature: {self.temperature} K\n")
         log.write(f"# Timestep: {self.timestep} fs\n")
         log.write(f"# Model: {self.model_name}\n")
+        if self.production_ensemble.lower() in ['nvt', 'langevin']:
+            log.write(f"# Friction: {self.production_friction} fs^-1\n")
         log.write(f"# Step Time(ps) Temp(K) Epot(eV) Ekin(eV) Etot(eV)\n")
 
         prod_traj = ASETrajectory(str(traj_file), 'w', self.atoms)
