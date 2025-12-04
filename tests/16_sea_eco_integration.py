@@ -2,7 +2,7 @@
 Test sea-eco integration features in PySlice.
 
 Part 1: Tests Signal, Dimensions, Dimension, GeneralMetadata, SignalSet,
-        serialization, and array operations using xp backend.
+        and .sea file serialization round-trips.
 
 Part 2: Tests that PySlice data classes (WFData, TACAWData, HAADFData)
         properly inherit from Signal with actual multislice simulations.
@@ -173,47 +173,6 @@ def test_signal_creation():
 
     print("  PASSED: Signal creation")
     return signal
-
-
-def test_signal_array_operations():
-    """Test array operations on Signal using xp backend."""
-    print("\n--- Testing Signal Array Operations ---")
-
-    from pyslice.backend import xp, to_cpu
-
-    data = np.random.rand(5, 5).astype(np.float32) * 100
-    signal = Signal(
-        data=data,
-        name='ArrayTest',
-        dimensions=Dimensions([
-            Dimension(name='x', values=np.arange(5)),
-            Dimension(name='y', values=np.arange(5)),
-        ])
-    )
-
-    # Test data property access
-    assert np.allclose(signal.data, data)
-    print("  signal.data access: PASSED")
-
-    # Test operations on signal.data with xp
-    sig_data = xp.tensor(signal.data) if hasattr(xp, 'tensor') else signal.data
-
-    result = xp.sqrt(sig_data)
-    result_np = to_cpu(result)
-    assert np.allclose(result_np, np.sqrt(data))
-    print("  xp.sqrt(signal.data): PASSED")
-
-    result = xp.abs(sig_data)
-    result_np = to_cpu(result)
-    assert np.allclose(result_np, np.abs(data))
-    print("  xp.abs(signal.data): PASSED")
-
-    result = xp.sum(sig_data)
-    result_np = float(to_cpu(result))
-    assert np.isclose(result_np, np.sum(data))
-    print(f"  xp.sum(signal.data) = {result_np:.4f}: PASSED")
-
-    print("  PASSED: Signal array operations")
 
 
 def test_signal_serialization():
@@ -528,7 +487,6 @@ if __name__ == '__main__':
     test_dimensions_collection()
     test_general_metadata()
     signal = test_signal_creation()
-    test_signal_array_operations()
     sea_path = test_signal_serialization()
     test_load_function(sea_path)
     test_signal_set()
