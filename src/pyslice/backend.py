@@ -33,10 +33,12 @@ try:
         config = device_and_precision('mps')
     else:
         config = device_and_precision('cpu')
+    TORCH_AVAILABLE = True
 
 except ImportError:
     xp = np
     config = device_and_precision()
+    TORCH_AVAILABLE = False
 
 DEFAULT_DEVICE, DEFAULT_FLOAT_DTYPE, DEFAULT_COMPLEX_DTYPE = config
 del config
@@ -120,8 +122,31 @@ def fftfreq(n, d, dtype=DEFAULT_FLOAT_DTYPE, device=DEFAULT_DEVICE):
 def exp(x):
     return xp.exp(x)
 
-def fft(k):
-    return xp.fft.fft(k)
+def fft(k,**kwargs):
+    if TORCH_AVAILABLE and "axis" in kwargs.keys():
+        kwargs["dim"]=kwargs["axis"] ; del kwargs["axis"]
+    if not TORCH_AVAILABLE and "dim" in kwargs.keys():
+        kwargs["axis"]=kwargs["dim"] ; del kwargs["dim"]
+    return xp.fft.fft(k,**kwargs)
+
+def fftshift(k,**kwargs):
+    if TORCH_AVAILABLE and "axes" in kwargs.keys():
+        kwargs["dim"]=kwargs["axes"] ; del kwargs["axes"]
+    if not TORCH_AVAILABLE and "dim" in kwargs.keys():
+        kwargs["axes"]=kwargs["dim"] ; del kwargs["dim"]
+    return xp.fft.fftshift(k,**kwargs)
+
+def mean(k,**kwargs):
+    if TORCH_AVAILABLE and "keepdims" in kwargs.keys():
+        kwargs["keepdim"]=kwargs["keepdims"] ; del kwargs["keepdims"]
+    if not TORCH_AVAILABLE and "keepdim" in kwargs.keys():
+        kwargs["keepdims"]=kwargs["keepdim"] ; del kwargs["keepdim"]
+    if TORCH_AVAILABLE and "axis" in kwargs.keys():
+        kwargs["dim"]=kwargs["axis"] ; del kwargs["axis"]
+    if not TORCH_AVAILABLE and "dim" in kwargs.keys():
+        kwargs["axis"]=kwargs["dim"] ; del kwargs["dim"]
+    return xp.mean(k,**kwargs)
+
 
 def ifft2(k):
     return xp.fft.ifft2(k)
