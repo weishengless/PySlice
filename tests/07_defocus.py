@@ -1,8 +1,9 @@
-import sys,os
+	# Convert tensors to numpy for matplotlibimport sys,os
 try:
-    import pyslice
+	import pyslice
 except ModuleNotFoundError:
-    sys.path.insert(0, '../src')
+	import sys
+	sys.path.insert(0, '../src')
 from pyslice.io.loader import Loader
 from pyslice.multislice.multislice import probe_grid,Probe,Propagate
 from pyslice.multislice.potentials import gridFromTrajectory,Potential
@@ -22,7 +23,7 @@ a,b=2.4907733333333337,2.1570729817355123
 
 # LOAD TRAJECTORY
 trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
-trajectory=trajectory.slice_timesteps( [0] )
+trajectory=trajectory.slice_timesteps( 0,1 )
 
 # POTENTIAL
 positions = trajectory.positions[0]
@@ -33,7 +34,8 @@ potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 
 # PROBE
 probe=Probe(xs,ys,mrad=30,eV=100e3)
-zmax=np.amax(np.absolute(np.asarray(probe.array.cpu())))
+array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
+zmax=np.amax(np.absolute(array))
 # 3D PLOT OF THE PROBE WAIST
 #probe.defocus(-300)
 zs=np.linspace(-1000,1000,21) # +/- 100 nm (this is units of Angstrom)
@@ -41,11 +43,11 @@ probe.defocus(zs[0]) ; dz=zs[1]-zs[0]
 fig = plt.figure()
 ax = fig.add_subplot(projection = '3d')
 for z in zs:
-	ary=np.absolute(probe.array.cpu())
 	# Convert tensors to numpy for matplotlib
+	array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
 	xs_np = probe.xs.cpu().numpy() if hasattr(probe.xs, 'cpu') else probe.xs
 	ys_np = probe.ys.cpu().numpy() if hasattr(probe.ys, 'cpu') else probe.ys
-	CS=plt.contour(xs_np[::3], ys_np[::3], (z+ary[::3,::3]/zmax).T) #, levels=lv,alpha=alpha,cmap=cmap)
+	CS=plt.contour(xs_np[::3], ys_np[::3], (z+np.absolute(array[::3,::3])/zmax).T) #, levels=lv,alpha=alpha,cmap=cmap)
 	probe.defocus(dz)
 #plt.show()	
 plt.savefig("outputs/figs/07_defocus_3D.png")
@@ -56,7 +58,8 @@ probe=Probe(xs,ys,mrad=30,eV=100e3)
 probe.defocus(10*1e2)
 probe.plot("outputs/figs/07_defocus_2D.png")
 
-differ(probe.array,"outputs/defocus-test.npy","DEFOCUSED PROBE")
+array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
+differ(array,"outputs/defocus-test.npy","DEFOCUSED PROBE")
 
 result = Propagate(probe,potential)
 if hasattr(result, 'cpu'):

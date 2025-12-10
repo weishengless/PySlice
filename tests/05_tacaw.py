@@ -34,7 +34,7 @@ calculator=MultisliceCalculator()
 calculator.setup(trajectory,aperture=0,voltage_eV=100e3,sampling=.1,slice_thickness=.5)
 exitwaves = calculator.run()
 
-exitwaves.plot(nuke_zerobeam=True,powerscaling=.125)
+exitwaves.plot(nuke_zerobeam=True,powerscaling=.125,filename="outputs/figs/05_tacaw_diff.png")
 
 tacaw = TACAWData(exitwaves)
 
@@ -53,13 +53,13 @@ tacaw = TACAWData(exitwaves)
 
 # OR PLOT USING BUILT IN TOOLS: AN ENERGY SLICE:
 Z = tacaw.spectral_diffraction(30) ; print(Z.shape)
-tacaw.plot(Z**.1,"kx","ky",filename="outputs/figs/05_tacaw.png")
+tacaw.plot(Z**.1,"kx","ky",filename="outputs/figs/05_tacaw_30THz.png")
 
 differ(Z**.1,"outputs/tacaw-test.npy","TACAW SLICE")
 
 # OR THE DISPERSION:
 kx=np.asarray(tacaw.kxs) ; kx=kx[kx>=0] ; kx=kx[kx<=4/a] ; print("kx",kx.shape)
 dispersion = tacaw.dispersion( kx , np.zeros(len(kx))+2/b )
-tacaw.plot(dispersion**.125,kx,"omega")
+tacaw.plot(dispersion**.125,kx,"omega",filename="outputs/figs/05_tacaw_disp.png")
 
 

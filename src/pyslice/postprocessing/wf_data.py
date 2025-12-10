@@ -344,7 +344,7 @@ class WFData(Signal):
         else:
             plt.show()
 
-    def plot_realspace(self,whichProbe=0,whichTimestep=0,extent=None,avg=False):
+    def plot_realspace(self,whichProbe=0,whichTimestep=0,extent=None,avg=False,filename=None):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
 
@@ -373,7 +373,11 @@ class WFData(Signal):
             img_data = np.asarray(img_data)
 
         ax.imshow( img_data, cmap="inferno", extent=extent )
-        plt.show()
+
+        if filename is not None:
+            plt.savefig(filename)
+        else:
+            plt.show()
 
     def propagate_free_space(self,dz): # UNITS OF ANGSTROM
         kx_grid, ky_grid = xp.meshgrid(self._kxs, self._kys, indexing='ij')

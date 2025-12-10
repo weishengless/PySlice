@@ -48,7 +48,7 @@ exitwaves = calculator.run()
 #plt.show()
 
 haadf=HAADFData(exitwaves)
-ary=haadf.calculateADF(preview=True)
+ary=haadf.calculateADF(preview=False) # use preview=True to view the collection angles of the ADF detector in reciprocal space
 xs=haadf.xs ; ys=haadf.ys
 
 #fig, ax = plt.subplots()
