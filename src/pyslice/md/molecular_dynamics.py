@@ -3,7 +3,7 @@ Molecular dynamics module using ORB models for PySlice package.
 """
 import numpy as np
 from pathlib import Path
-import logging
+import logging,traceback
 import time
 from typing import Optional, Dict, List
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
@@ -186,6 +186,7 @@ class MDCalculator:
 
         except Exception as e:
             logger.error(f"Failed to load ORB: {e}")
+            print(traceback.format_exc())
             return False
 
     def setup(
