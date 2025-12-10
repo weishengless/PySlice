@@ -1,12 +1,12 @@
 # backend.py
 import numpy as np
-import torch
+#import torch
 
 
 def device_and_precision(device_spec=None):
     
     # We always choose PyTorch if available
-    if xp == torch:
+    if xp != np:
         if device_spec is None:
             device = DEFAULT_DEVICE
         else: 
@@ -40,6 +40,54 @@ except ImportError:
 
 DEFAULT_DEVICE, DEFAULT_FLOAT_DTYPE, DEFAULT_COMPLEX_DTYPE = config
 del config
+
+# Aliases for convenience
+float_dtype = DEFAULT_FLOAT_DTYPE
+complex_dtype = DEFAULT_COMPLEX_DTYPE
+
+
+def configure_backend(device_spec=None, backend_spec=None):
+    """
+    Configure and return backend settings.
+
+    Args:
+        device_spec: Device specification ('cpu', 'cuda', 'mps', or None for auto)
+        backend_spec: Backend specification ('numpy', 'torch', or None for auto)
+
+    Returns:
+        Tuple of (backend, device, float_dtype, complex_dtype)
+    """
+    global xp, DEFAULT_DEVICE, DEFAULT_FLOAT_DTYPE, DEFAULT_COMPLEX_DTYPE
+    global float_dtype, complex_dtype
+
+    # Determine backend
+    if backend_spec == 'numpy':
+        backend = np
+        device = None
+        fdtype = np.float64
+        cdtype = np.complex128
+    else:
+        # Use torch
+        backend = torch
+        if device_spec is None:
+            if torch.cuda.is_available():
+                device = torch.device('cuda')
+            elif torch.backends.mps.is_available():
+                device = torch.device('mps')
+            else:
+                device = torch.device('cpu')
+        else:
+            device = torch.device(device_spec)
+
+        # Set precision based on device
+        if device.type == 'mps':
+            fdtype = torch.float32
+            cdtype = torch.complex64
+        else:
+            fdtype = torch.float64
+            cdtype = torch.complex128
+
+    return (backend, device, fdtype, cdtype)
 
 
 def asarray(arraylike, dtype=None, device=None):

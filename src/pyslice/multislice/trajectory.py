@@ -235,13 +235,17 @@ class Trajectory:
         Slice trajectory to include only specified timesteps.
 
         Args:
-            i1: first frame index to keep (default 0, i.e., first)
+            i1: first frame index to keep (default 0, i.e., first),
+                OR a list of specific indices to select
             i2: first frame index to ignore (defaults to include last)
             ith: used for selecting alternating frames. 2 = every-other, 3 = every 3rd etc
 
         Returns:
             New Trajectory with only the specified timesteps
         """
+        # Handle list of indices - delegate to select_timesteps
+        if isinstance(i1, (list, tuple)):
+            return self.select_timesteps(i1)
 
         if i2 is None:
             i2=len(self.positions)

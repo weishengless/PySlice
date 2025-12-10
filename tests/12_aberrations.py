@@ -8,6 +8,7 @@ from pyslice.multislice.multislice import Probe,Propagate
 from pyslice.multislice.potentials import gridFromTrajectory,Potential
 from pyslice.multislice.calculators import MultisliceCalculator
 from pyslice.postprocessing.testtools import differ
+from pyslice.backend import xp, to_cpu
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil
@@ -73,10 +74,10 @@ for j in range(ny):
 			for probe in probes:
 				probe.defocus(dz)
 			z+=dz
-		axs[j,i].set_title("z="+str(np.round(z))+"$\AA$")
-		probe = [ w*p.array for w,p in zip(weighting,probes) ]
-		probe = np.sum(np.absolute(probe),axis=0)
-		axs[j,i].imshow(probe**2)
+		axs[j,i].set_title("z="+str(np.round(z))+r"$\AA$")
+		probe = xp.stack([ w*p.array for w,p in zip(weighting,probes) ])
+		probe = xp.sum(xp.abs(probe),axis=0)
+		axs[j,i].imshow(to_cpu(probe**2))
 		ct+=1
 
 plt.savefig("outputs/figs/12_aberrations_tableau.png")

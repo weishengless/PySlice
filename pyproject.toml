@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["abtem>=1.0.6"]
+md = ["orb-models"]
 
 [project.urls]
 Homepage = "https://github.com/h-walk/PySlice"
@@ -34,8 +35,9 @@ include = [
     "src/pyslice/data/*.json",
 ]
 
-[tool.uv.build]
-include = [
-    "src/pyslice/data/*.txt",
-    "src/pyslice/data/*.json",
-]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyslice"]

@@ -145,7 +145,8 @@ def loadKirkland(device='cpu'):
         'kirkland.txt',
         '../kirkland.txt', 
         '../../kirkland.txt',
-        Path(__file__).parent.parent.parent / 'kirkland.txt'
+        Path(__file__).parent.parent.parent / 'kirkland.txt',
+        Path(__file__).parent.parent / 'data/kirkland.txt' # relative path from potentials.py to data folder? i think this is the *right* place for kirkland.txt, not at the root of PySlice...
     ]
     
     for path in search_paths:
