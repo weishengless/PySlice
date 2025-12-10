@@ -270,6 +270,9 @@ calculator.setup(
 
 print("Running multislice calculation...")
 exitwaves = calculator.run()
+
+exitwaves.crop([min(exitwaves.kxs)/2,max(exitwaves.kxs)/2],[min(exitwaves.kys)/2,max(exitwaves.kys)/2]) # CROP FOR LESS RAM USAGE?????
+
 exitwaves.plot(nuke_zerobeam=True, powerscaling=0.125)
 print("Computing TACAW spectrum...")
 tacaw = TACAWData(exitwaves)

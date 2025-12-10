@@ -405,3 +405,19 @@ class WFData(Signal):
             real *= mask[None,None,:,:,None]
             self._array = xp.fft.fftshift(xp.fft.fft2(real,**kwarg),**kwarg)
 
+    def crop(self,kx_range=None,ky_range=None):
+        if kx_range is not None:
+            kx_mask = xp.zeros(len(self._kxs))
+            kx_mask[self._kxs >= kx_range[0]]=1
+            kx_mask[self._kxs > kx_range[1]]=0
+            self._array = self._array[kx_mask==1,:]
+            self._kxs = self._kxs[kx_mask==1]
+        if ky_range is not None:
+            ky_mask = xp.zeros(len(self._kys))
+            ky_mask[self._kys >= ky_range[0]]=1
+            ky_mask[self._kys > ky_range[1]]=0
+            self._array = self._array[:,ky_mask==1]
+            self._kys = self._kys[ky_mask==1]
+
+
+
