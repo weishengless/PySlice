@@ -1,12 +1,12 @@
 # backend.py
 import numpy as np
-import torch
+#import torch
 
 
 def device_and_precision(device_spec=None):
     
     # We always choose PyTorch if available
-    if xp == torch:
+    if xp != np:
         if device_spec is None:
             device = DEFAULT_DEVICE
         else: 
