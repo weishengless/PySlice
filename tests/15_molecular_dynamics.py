@@ -35,7 +35,7 @@ from pyslice.postprocessing.tacaw_data import TACAWData
 # OPTION: Load trajectory from cache instead of running MD
 # Set to True to skip MD and load from previous run
 LOAD_FROM_CACHE = True
-OUTPUT_DIR = "tests/outputs/md_output"
+OUTPUT_DIR = "outputs/md_output"
 
 if LOAD_FROM_CACHE and os.path.exists(f"{OUTPUT_DIR}/production.traj"):
     print("=" * 70)
