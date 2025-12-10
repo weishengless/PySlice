@@ -410,13 +410,13 @@ class WFData(Signal):
             kx_mask = xp.zeros(len(self._kxs))
             kx_mask[self._kxs >= kx_range[0]]=1
             kx_mask[self._kxs > kx_range[1]]=0
-            self._array = self._array[kx_mask==1,:]
+            self._array = self._array[:,:,kx_mask==1,:,:] # p,t,x,y,l indices
             self._kxs = self._kxs[kx_mask==1]
         if ky_range is not None:
             ky_mask = xp.zeros(len(self._kys))
             ky_mask[self._kys >= ky_range[0]]=1
             ky_mask[self._kys > ky_range[1]]=0
-            self._array = self._array[:,ky_mask==1]
+            self._array = self._array[:,:,:,ky_mask==1,:]
             self._kys = self._kys[ky_mask==1]
 
 
