@@ -1,10 +1,10 @@
 # PySlice
 
-PySlice is a Python package for simulating and analyzing multslice simulations from molecular dynamics trajectories. In addition to standard multislice simulations such as diffraction and HAADF image generation, it implements the **TACAW method** to convert time-domain electron scattering data into frequency-domain spectra. This enables the accurate simulation of vibrational electron energy loss spectroscopy.
+PySlice is a Python package for simulating and analyzing multslice simulations from molecular dynamics trajectories. In addition to standard multislice simulations such as diffraction and HAADF image generation, it implements the **TACAW method** to convert time-domain electron scattering data into frequency-domain spectra. This enables the accurate simulation of momentum-resolved vibrational electron energy loss spectroscopy (q-EELS).
 
 # Usage
 
-For now, please see PySlice/src/unittests for a series of basic examples. 
+For now, please see the tests folder for a series of basic examples. 
 
 ## Generating a basic TEM frozen-phonon diffraction pattern:
 ```
