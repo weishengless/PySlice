@@ -32,10 +32,11 @@ potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 # TEST PROPAGATION
 # Handle device conversion properly for PyTorch tensors
 result = Propagate(probe,potential,onthefly=False)
-if hasattr(result, 'cpu'):
-    ary = result.cpu().numpy()  # Convert PyTorch tensor to numpy
-else:
-    ary = np.asarray(result)  # Already numpy array
+ary = result.array # ".array" converts torch tensor to CPU numpy array automatically if required
+#if hasattr(result, 'cpu'):
+#    ary = result.cpu().numpy()  # Convert PyTorch tensor to numpy
+#else:
+#    ary = np.asarray(result)  # Already numpy array
 
 #arydiffer(ary,"outputs/propagate-test.npy","EXIT WAVE")
 

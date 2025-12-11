@@ -22,10 +22,12 @@ ary=np.zeros((5,501,491),dtype=complex)
 for i,mrad in enumerate(mrads):
 	probe=Probe(xs,ys,mrad=mrad,eV=100e3,preview=False,gaussianVOA=0)
 	probe.plot("outputs/figs/00_probe_"+str(i)+".png")
-	if hasattr(probe, 'to_cpu'):
-		ary[i] = probe.to_cpu()
-	else:
-		ary[i] = np.asarray(probe.array)
+	#if hasattr(probe, 'to_cpu'):
+	#	ary[i] = probe.to_cpu()
+	#else:
+	#	ary[i] = np.asarray(probe.array)
+	ary[i] = probe.array # ".array" converts torch tensor to CPU numpy array automatically if required
+
 ary=np.reshape(ary,(501*5,491))
 
 differ(ary,"outputs/probe-test.npy","PROBE")

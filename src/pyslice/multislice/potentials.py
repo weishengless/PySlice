@@ -360,7 +360,7 @@ class Potential:
             return Z
         
         self.calculateSlice = calculateSlice
-        self.array = None
+        self._array = None
        
     def build(self,progress=False):
 
@@ -380,14 +380,18 @@ class Potential:
             potential_real[:, :, slice_idx] += self.calculateSlice(slice_idx)
          
         # Store tensor version for potential GPU operations
-        self.array = potential_real
-        
+        self._array = potential_real
+
+    @property
+    def array(self):
+        return self.to_cpu()
+ 
     def to_cpu(self):
         """Convert tensors back to CPU NumPy arrays."""
         if self.use_torch:
-            return self.array.cpu().numpy()
+            return self._array.cpu().numpy()
         else:
-            return self.array
+            return self._array
     
     def to_device(self, device):
         """Move tensor data to specified device."""
@@ -397,15 +401,15 @@ class Potential:
         return self
 
     def plot(self,filename=""):
-        if self.array is None:
+        if self._array is None:
             self.build()
 
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        array = xp.sum(xp.absolute(self.array),axis=2).T # imshow convention: y,x. our convention: x,y
+        array = np.sum(np.absolute(self.array),axis=2).T # imshow convention: y,x. our convention: x,y
         # Convert to CPU if on GPU/MPS device
-        if hasattr(array, 'cpu'):
-            array = array.cpu()
+        #if hasattr(array, 'cpu'):
+        #    array = array.cpu()
 
         # Convert extent values to CPU if needed
         xs_min = xp.amin(self.xs)

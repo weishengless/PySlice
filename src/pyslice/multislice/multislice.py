@@ -110,14 +110,14 @@ class Probe:
 
         if not array is None: # Allow construction of a Probe object with a passed array instead of building it below. used by create_batched_probes
             if self.use_torch and hasattr(array, 'to'):
-                self.array = array.to(device=self.device, dtype=self.complex_dtype)
+                self._array = array.to(device=self.device, dtype=self.complex_dtype)
             else:
-                self.array = xp.asarray(array)
+                self._array = xp.asarray(array)
             return
                     
         device_kwargs = {'device': self.device, 'dtype': self.dtype} if self.use_torch else {}
         if mrad == 0:
-            self.array = xp.ones((nx, ny), **device_kwargs)
+            self._array = xp.ones((nx, ny), **device_kwargs)
         else:
             reciprocal = xp.zeros((nx, ny), **device_kwargs)
             radius = (mrad * 1e-3) / self.wavelength  # Convert mrad to reciprocal space units
@@ -141,7 +141,7 @@ class Probe:
                 ax.set_ylabel("ky ($\\AA^{-1}$)")
                 plt.show()
 
-            self.array = xp.fft.ifftshift(xp.fft.ifft2(reciprocal))
+            self._array = xp.fft.ifftshift(xp.fft.ifft2(reciprocal))
         
         #self.array_numpy = self.array.cpu().numpy()
     
@@ -155,16 +155,20 @@ class Probe:
         new_probe.wavelength = self.wavelength
         new_probe.kxs = self.kxs.clone()
         new_probe.kys = self.kys.clone()
-        new_probe.array = self.array.clone()
+        new_probe._array = self._array.clone()
         new_probe.device = self.device
         new_probe.array_numpy = self.array_numpy.copy()
         return new_probe
+
+    @property
+    def array(self):
+        return self.to_cpu()
     
     def to_cpu(self):
         """Convert probe array to CPU NumPy array."""
-        if hasattr(self.array, 'cpu'):
-            return self.array.cpu().numpy()
-        return self.array
+        if hasattr(self._array, 'cpu'):
+            return self._array.cpu().numpy()
+        return self._array
     
     def to_device(self, device):
         """Move probe to specified device (similar to Potential.to_device)."""
@@ -177,7 +181,7 @@ class Probe:
         else:
             dtype, complex_dtype = torch.float64, torch.complex128
 
-        self.array = self.array.to(device=device, dtype=complex_dtype)
+        self._array = self._array.to(device=device, dtype=complex_dtype)
         self.xs = self.xs.to(device=device, dtype=dtype)
         self.ys = self.ys.to(device=device, dtype=dtype)
         self.kxs = self.kxs.to(device=device, dtype=dtype)
@@ -194,9 +198,9 @@ class Probe:
         array = self.array.T # imshow convention: y,x. our convention: x,y
 
         # Convert array to CPU if on GPU/MPS device
-        plot_array = xp.absolute(array)**.25
-        if hasattr(plot_array, 'cpu'):
-            plot_array = plot_array.cpu()
+        plot_array = np.absolute(array)**.25
+        #if hasattr(plot_array, 'cpu'):
+        #    plot_array = plot_array.cpu()
 
         # Convert extent values to CPU if needed (use xp for torch/numpy compatibility)
         xs_min = xp.amin(self.xs)
@@ -225,7 +229,7 @@ class Probe:
         k_squared = kx_grid**2 + ky_grid**2
         P = xp.exp(-1j * xp.pi * self.wavelength * dz * k_squared)
         #if dz>0:
-        self.array = xp.fft.ifft2( P * xp.fft.fft2( self.array ) )
+        self._array = xp.fft.ifft2( P * xp.fft.fft2( self._array ) )
         #if dz<0:
         #   self.array = xp.fft.ifft2( xp.fft.fft2( self.array ) / P )
 
@@ -259,7 +263,7 @@ class Probe:
     # χ(k,ϕ) = π/2/λ 1/(n+1) C ( k λ )^(n+1) cos(m*(ϕ-ϕa))
     # where Kirkland 
     def aberrate(self,aberrations): # aberrations should be a dict of Cnm following https://abtem.readthedocs.io/en/latest/user_guide/walkthrough/contrast_transfer_function.html
-        dPhi = xp.zeros(self.array.shape)
+        dPhi = xp.zeros(self._array.shape)
         ks = xp.sqrt( self.kxs[:,None]**2 + self.kys[None,:]**2 )
         theta = xp.atan2( self.kys[None,:] , self.kxs[:,None] )
         for k in aberrations.keys():
@@ -275,9 +279,9 @@ class Probe:
         # self.array = xp.fft.ifftshift(xp.fft.ifft2(reciprocal))
         # Aberrations are defined at the aperture plane, so we must apply them in reciprocal space. 
 		# (or do a convolution in real-space)
-        reciprocal = xp.fft.fft2(xp.fft.fftshift(self.array))
+        reciprocal = xp.fft.fft2(xp.fft.fftshift(self._array))
         reciprocal *= xp.exp(-1j * dPhi)
-        self.array = xp.fft.ifftshift(xp.fft.ifft2(reciprocal))
+        self._array = xp.fft.ifftshift(xp.fft.ifft2(reciprocal))
 
 
 def probe_grid(xlims,ylims,n,m):
@@ -321,7 +325,7 @@ def create_batched_probes(base_probe, probe_positions, device=None):
 
     for px, py in probe_positions:
         # Create shifted probe using phase ramp in k-space
-        probe_k = xp.fft.fft2(base_probe.array)
+        probe_k = xp.fft.fft2(base_probe._array)
 
         # Apply phase ramp for spatial shift
         kx_shift = xp.exp(2j * xp.pi * base_probe.kxs[:, None] * (px-lx/2) )
@@ -362,8 +366,8 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True, stor
         raise ImportError("PyTorch not available. Please install PyTorch.")
     
 
-    if len(probe.array.shape) == 2:
-        probe.array = probe.array[None,:,:]
+    if len(probe._array.shape) == 2:
+        probe._array = probe._array[None,:,:]
     
     # Calculate interaction parameter (Kirkland Eq 5.6)
     E0_eV = m_electron * c_light**2 / q_electron
@@ -377,7 +381,7 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True, stor
     dz = potential.zs[1] - potential.zs[0] if len(potential.zs) > 1 else 0.5
     
     # Initialize wavefunction with probe(s) - shape: (n_probes, nx, ny)
-    array = probe.array #.clone()
+    array = probe._array #.clone()
 
     # Pre-compute propagation operator in k-space (Fresnel propagation)
     # All tensors should already be on the correct device from creation
@@ -405,7 +409,7 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True, stor
         if onthefly:
             potential_slice = potential.calculateSlice(z)
         else:
-            potential_slice = potential.array[:, :, z]
+            potential_slice = potential._array[:, :, z]
         t = xp.exp(1j * sigma * potential_slice)
 
         # Apply transmission to all probes: ψ' = t × ψ
