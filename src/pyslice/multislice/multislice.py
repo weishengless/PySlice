@@ -444,5 +444,5 @@ def Propagate(probe, potential, device=None, progress=False, onthefly=True, stor
     # Return single probe result if input was single, otherwise return batch
     if array.shape[0] == 1:
         return array.squeeze(0)
-    return array
+    return array # okay for Propagate to return a Tensor. we probably don't want to move things off-gpu yet
 

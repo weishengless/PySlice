@@ -76,7 +76,7 @@ class TACAWData(Signal):
         self.chunkFFT = chunkFFT
 
         # Store reference to source WFData array for FFT computation
-        self._wf_array = wf_data.array
+        self._wf_array = wf_data._array
 
         # Initialize intensity as None, will be set by fft_from_wf_data
         self._array = None

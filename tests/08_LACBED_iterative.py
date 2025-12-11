@@ -49,12 +49,12 @@ for i in range(10):
 	if i==0:								
 		calculator.base_probe.defocus(-1000)
 	else:									
-		calculator.base_probe.array = last_slice_exit
+		calculator.base_probe._array = last_slice_exit # FYI: the calling user really shouldn't be setting "internal" variables, but this iterative script is really just meant to be a demo of the hacky capabilities
 	# RUN THE SIMULATION
 	exitwaves = calculator.run()
-	exit_data = exitwaves.array[0,0,:,:,0]
-	if hasattr(exit_data, 'cpu'):
-		exit_data = exit_data.cpu().numpy()
+	exit_data = exitwaves.array[0,0,:,:,0] # ".array" converts torch tensor to CPU numpy array automatically if required
+	#if hasattr(exit_data, 'cpu'):
+	#	exit_data = exit_data.cpu().numpy()
 	last_slice_exit = np.fft.ifft2(np.fft.ifftshift(exit_data))
 
 # REPROPAGATE TO PROBE FOCAL POINT		
@@ -70,10 +70,10 @@ exitwaves.applyMask(5,"real")
 #exitwaves.plot_realspace()
 exitwaves.plot_reciprocal("outputs/figs/08_LACBED_iterative.png")
 
-ary=exitwaves.array
+ary=exitwaves.array # ".array" converts torch tensor to CPU numpy array automatically if required
 
 # Convert to numpy if it's a torch tensor
-if hasattr(ary, 'cpu'):
-	ary = ary.cpu().numpy()
+#if hasattr(ary, 'cpu'):
+#	ary = ary.cpu().numpy()
 
 differ(ary[::3,::3],"outputs/lacbed-test.npy","LACBED")

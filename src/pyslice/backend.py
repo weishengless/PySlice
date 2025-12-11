@@ -97,7 +97,7 @@ def asarray(arraylike, dtype=None, device=None):
         dtype = DEFAULT_FLOAT_DTYPE
     if device is None:
         device = DEFAULT_DEVICE
-    if xp == torch:
+    if xp != np:
 #        if dtype == bool:
 #            dtype = xp.bool
         array = xp.tensor(arraylike, dtype=dtype, device=device)
@@ -106,14 +106,14 @@ def asarray(arraylike, dtype=None, device=None):
     return array
 
 def zeros(dims, dtype=DEFAULT_FLOAT_DTYPE, device=DEFAULT_DEVICE):
-    if xp == torch:
+    if xp != np:
         array = xp.zeros(dims, dtype=dtype, device=device)
     else:
         array = xp.zeros(dims, dtype=dtype)
     return array
 
 def fftfreq(n, d, dtype=DEFAULT_FLOAT_DTYPE, device=DEFAULT_DEVICE):
-    if xp is torch:
+    if xp != np:
         return xp.fft.fftfreq(n, d, dtype=dtype, device=device)
     else:
         return xp.fft.fftfreq(n, d, dtype=dtype)
@@ -164,7 +164,7 @@ def amin(x):
     return xp.amin(x)
 
 def sum(x, axis=None, **kwargs):
-    if xp is torch:
+    if xp != np:
         return xp.sum(x, dim=axis, **kwargs)
     else:
         return xp.sum(x, axis=axis, **kwargs)
@@ -173,7 +173,7 @@ def any(x):
     return xp.any(x)
 
 def einsum(subscripts, *operands, **kwargs):
-    if xp is torch:
+    if xp != np:
         return xp.einsum(subscripts, *operands, **kwargs)
     else:
         return xp.einsum(subscripts, *operands, optimize=True, **kwargs)

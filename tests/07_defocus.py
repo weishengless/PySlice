@@ -34,7 +34,8 @@ potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 
 # PROBE
 probe=Probe(xs,ys,mrad=30,eV=100e3)
-array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
+#array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
+array=probe.array  # ".array" converts torch tensor to CPU numpy array automatically if required
 zmax=np.amax(np.absolute(array))
 # 3D PLOT OF THE PROBE WAIST
 #probe.defocus(-300)
@@ -44,9 +45,14 @@ fig = plt.figure()
 ax = fig.add_subplot(projection = '3d')
 for z in zs:
 	# Convert tensors to numpy for matplotlib
-	array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
-	xs_np = probe.xs.cpu().numpy() if hasattr(probe.xs, 'cpu') else probe.xs
-	ys_np = probe.ys.cpu().numpy() if hasattr(probe.ys, 'cpu') else probe.ys
+	#array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
+	#xs_np = probe.xs.cpu().numpy() if hasattr(probe.xs, 'cpu') else probe.xs
+	#ys_np = probe.ys.cpu().numpy() if hasattr(probe.ys, 'cpu') else probe.ys
+
+	array=probe.array  # ".array" converts torch tensor to CPU numpy array automatically if required
+	xs_np = probe.xs   # may be a torch tensor but does not appear to matter for following code?
+	ys_np = probe.ys
+
 	CS=plt.contour(xs_np[::3], ys_np[::3], (z+np.absolute(array[::3,::3])/zmax).T) #, levels=lv,alpha=alpha,cmap=cmap)
 	probe.defocus(dz)
 #plt.show()	
@@ -58,12 +64,13 @@ probe=Probe(xs,ys,mrad=30,eV=100e3)
 probe.defocus(10*1e2)
 probe.plot("outputs/figs/07_defocus_2D.png")
 
-array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
+#array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
+array=probe.array  # ".array" converts torch tensor to CPU numpy array automatically if required
 differ(array,"outputs/defocus-test.npy","DEFOCUSED PROBE")
 
-result = Propagate(probe,potential)
-if hasattr(result, 'cpu'):
-    result = result.cpu()
+result = Propagate(probe,potential) # may be a torch tensor but does not appear to matter for following code?
+#if hasattr(result, 'cpu'):
+#    result = result.cpu()
 
 #import matplotlib.pyplot as plt
 #fig, ax = plt.subplots()

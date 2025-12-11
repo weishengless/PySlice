@@ -253,7 +253,7 @@ class Potential:
         self.kxs = xp.fft.fftfreq(self.nx, d=self.dx, **device_kwargs)
         self.kys = xp.fft.fftfreq(self.ny, d=self.dy, **device_kwargs)
         qsq = self.kxs[:, None]**2 + self.kys[None, :]**2
-                
+     
         # Convert atom types to atomic numbers if needed
         unique_atom_types = set(atomTypes)
         atomic_numbers = []

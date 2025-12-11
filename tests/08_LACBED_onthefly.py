@@ -49,10 +49,10 @@ exitwaves.propagate_free_space(1000-calculator.lz)
 exitwaves.applyMask(5,"real")
 exitwaves.plot_reciprocal("outputs/figs/08_LACBED_onthefly.png")
 
-ary=exitwaves.array
+ary=exitwaves.array # ".array" converts torch tensor to CPU numpy array automatically if required
 
 # Convert to numpy if it's a torch tensor
-if hasattr(ary, 'cpu'):
-	ary = ary.cpu().numpy()
+#if hasattr(ary, 'cpu'):
+#	ary = ary.cpu().numpy()
 
 differ(ary[::3,::3],"outputs/lacbed-test.npy","LACBED")

@@ -52,22 +52,25 @@ potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 # TEST PROPAGATION
 # Handle device conversion properly for PyTorch tensors
 result = Propagate(probes_many,potential)
-if hasattr(result, 'cpu'):
-    ary = result.cpu().numpy()  # Convert PyTorch tensor to numpy
-else:
-    ary = np.asarray(result)  # Already numpy array
+ary = result # may be a torch tensor but does not appear to matter for following code?
+#if hasattr(result, 'cpu'):
+#    ary = result.cpu().numpy()  # Convert PyTorch tensor to numpy
+#else:
+#    ary = np.asarray(result)  # Already numpy array
 
 
 differ(ary[::2,::2,::2],"outputs/manyprobes-test.npy","EXIT WAVE")
 
 # ASSEMBLE HAADF IMAGE
 # Convert PyTorch tensors to numpy arrays for k-space calculations
-if hasattr(potential.kxs, 'cpu'):
-    kxs = potential.kxs.cpu().numpy()
-    kys = potential.kys.cpu().numpy()
-else:
-    kxs = np.asarray(potential.kxs)
-    kys = np.asarray(potential.kys)
+kxs = potential.kxs 
+kys = potential.kys
+#if hasattr(potential.kxs, 'cpu'):
+#    kxs = potential.kxs.cpu().numpy()
+#    kys = potential.kys.cpu().numpy()
+#else:
+#    kxs = np.asarray(potential.kxs)
+#    kys = np.asarray(potential.kys)
 q=np.sqrt(kxs[:,None]**2+kys[None,:]**2)
 fig, ax = plt.subplots()
 fft=np.fft.fft2(ary,axes=(1,2)) ; fft[:,q<2]=0 # mask in reciprocal space (keep only high scattering angles)
