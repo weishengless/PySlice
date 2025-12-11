@@ -33,6 +33,7 @@ calculator=MultisliceCalculator()
 calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_positions=xy,cache_levels=[])
 exitwaves = calculator.run()
 
+exitwaves.plot_reciprocal(filename="outputs/figs/04_haadf_cbed.png")
 #print(exitwaves.wavefunction_data.shape)
 # exitwaves.wavefunction_data is reciprocal-space now! 
 #ary=np.mean(np.absolute(exitwaves.wavefunction_data[:,:,:,:,-1]),axis=1)

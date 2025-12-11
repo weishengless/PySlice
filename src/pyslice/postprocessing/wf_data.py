@@ -6,6 +6,7 @@ from typing import List, Tuple, Optional
 from ..multislice.multislice import Probe
 from ..data import Signal, Dimensions, Dimension, GeneralMetadata
 from pathlib import Path
+from ..backend import mean
 
 try:
     import torch ; xp = torch
@@ -211,19 +212,21 @@ class WFData(Signal):
 
         return result
 
-    def plot_reciprocal(self,filename=None,whichProbe=0,whichTimestep=0,powerscaling=0.25,extent=None,avg=False,nuke_zerobeam=False):
+    def plot_reciprocal(self,filename=None,whichProbe="mean",whichTimestep="mean",powerscaling=0.25,extent=None,nuke_zerobeam=False):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
 
-        if avg:
-            # Average over all timesteps
-            array = self._array[whichProbe,:,:,:,-1] # Shape: (time, kx, ky)
-            if hasattr(array, 'mean'):  # torch tensor
-                array = array.mean(dim=0)  # Average over time dimension
-            else:  # numpy array
-                array = np.mean(array, axis=0)
+        array = xp.absolute(self._array[:,:,:,:,-1]) # probe, time, kx, ky, layer --> p,t,kx,ky
+
+        if isinstance(whichProbe,str) and whichProbe=="mean":
+            array = mean(abs(array),axis=0) # p,t,kx,ky --> t,kx,ky
         else:
-            array = self._array[whichProbe,whichTimestep,:,:,-1] # Shape: (kx, ky)
+            array = array[whichProbe] 
+
+        if isinstance(whichTimestep,str) and whichProbe=="mean":
+            array = mean(array,axis=0) # t,kx,ky --> kx,ky
+        else:
+            array = array[whichTimestep] 
 
         # Convert kxs and kys to numpy for indexing
         if hasattr(self.kxs, 'cpu'):
