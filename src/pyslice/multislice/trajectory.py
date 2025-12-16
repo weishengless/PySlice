@@ -77,11 +77,13 @@ class Trajectory:
         total_tiles = nx * ny * nz
 
         # Generate all tile offsets
+        # Note: box_matrix uses row convention (rows are lattice vectors a, b, c)
+        # so offset = [i, j, k] @ box_matrix = i*a + j*b + k*c
         offsets = []
         for i in range(nx):
             for j in range(ny):
                 for k in range(nz):
-                    offset = self.box_matrix @ np.array([i, j, k])
+                    offset = np.array([i, j, k]) @ self.box_matrix
                     offsets.append(offset)
 
         # Apply offsets to create tiled positions and velocities
@@ -102,11 +104,11 @@ class Trajectory:
         new_velocities = np.concatenate(tiled_velocities, axis=1)
         new_atom_types = np.concatenate(tiled_atom_types)
 
-        # Scale box matrix
+        # Scale box matrix (row convention: row 0 = a, row 1 = b, row 2 = c)
         new_box_matrix = self.box_matrix.copy()
-        new_box_matrix[:, 0] *= nx  # Scale x-direction
-        new_box_matrix[:, 1] *= ny  # Scale y-direction
-        new_box_matrix[:, 2] *= nz  # Scale z-direction
+        new_box_matrix[0, :] *= nx  # Scale a vector (row 0)
+        new_box_matrix[1, :] *= ny  # Scale b vector (row 1)
+        new_box_matrix[2, :] *= nz  # Scale c vector (row 2)
 
         return Trajectory(
             atom_types=new_atom_types,
