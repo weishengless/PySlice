@@ -416,11 +416,11 @@ class WFData(Signal):
         npt,nt,nx,ny,nl = self._array.shape
         i1=0 ; i2=nx ; j1=0 ; j2=ny
         if kx_range is not None:
-            i1=xp.argwhere(self._kxs >= kx_range[0])[0]
-            i2=xp.argwhere(self._kxs > kx_range[1])[0]
+            i1=xp.argwhere(self._kxs >= kx_range[0])[0]    # first element >=
+            i2=xp.argwhere(self._kxs <= kx_range[1])[-1]+1 # last element <=, +1, so i1:i2 includes i2
         if ky_range is not None:
             j1=xp.argwhere(self._kys >= ky_range[0])[0]
-            j2=xp.argwhere(self._kys > ky_range[1])[0]
+            j2=xp.argwhere(self._kys <= ky_range[1])[-1]+1
         nx=i2-i1 ; ny=j2-j1
         self._array = self._array[:,:,i1:i2,j1:j2,:] # p,t,x,y,l indices: TODO this uses the same amount of RAM
         #self._array = xp.zeros((npt,nt,nx,ny,nl), device=self._array.device if TORCH_AVAILABLE else None) +\
