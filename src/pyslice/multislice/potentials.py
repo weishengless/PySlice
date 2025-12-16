@@ -400,7 +400,7 @@ class Potential:
         self.device = device
         return self
 
-    def plot(self,filename=""):
+    def plot(self,filename=None):
         if self._array is None:
             self.build()
 
