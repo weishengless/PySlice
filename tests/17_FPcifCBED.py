@@ -21,7 +21,7 @@ positions = trajectory.positions[0]
 atom_types=trajectory.atom_types
 xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
 potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
-potential.plot("out.png")
+potential.plot()
 
 
 
