@@ -413,18 +413,19 @@ class WFData(Signal):
             self._array = xp.fft.fftshift(xp.fft.fft2(real,**kwarg),**kwarg)
 
     def crop(self,kx_range=None,ky_range=None):
+        npt,nt,nx,ny,nl = self._array.shape
+        i1=0 ; i2=nx ; j1=0 ; j2=ny
         if kx_range is not None:
-            kx_mask = xp.zeros(len(self._kxs))
-            kx_mask[self._kxs >= kx_range[0]]=1
-            kx_mask[self._kxs > kx_range[1]]=0
-            self._array = self._array[:,:,kx_mask==1,:,:] # p,t,x,y,l indices
-            self._kxs = self._kxs[kx_mask==1]
+            i1=xp.argwhere(self._kxs >= kx_range[0])[0]
+            i2=xp.argwhere(self._kxs > kx_range[1])[0]
         if ky_range is not None:
-            ky_mask = xp.zeros(len(self._kys))
-            ky_mask[self._kys >= ky_range[0]]=1
-            ky_mask[self._kys > ky_range[1]]=0
-            self._array = self._array[:,:,:,ky_mask==1,:]
-            self._kys = self._kys[ky_mask==1]
-
+            j1=xp.argwhere(self._kys >= ky_range[0])[0]
+            j2=xp.argwhere(self._kys > ky_range[1])[0]
+        nx=i2-i1 ; ny=j2-j1
+        self._array = self._array[:,:,i1:i2,j1:j2,:] # p,t,x,y,l indices: TODO this uses the same amount of RAM
+        #self._array = xp.zeros((npt,nt,nx,ny,nl), device=self._array.device if TORCH_AVAILABLE else None) +\
+        #      self._array[:,:,i1:i2,j1:j2,:] # p,t,x,y,l indices TODO this actually uses MORE RAM? 
+        self._kxs = self._kxs[i1:i2]
+        self._kys = self._kys[j1:j2]
 
 

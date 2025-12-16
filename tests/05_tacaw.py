@@ -36,8 +36,10 @@ exitwaves = calculator.run()
 
 exitwaves.plot(nuke_zerobeam=True,powerscaling=.125,filename="outputs/figs/05_tacaw_diff.png")
 
-tacaw = TACAWData(exitwaves)
+exitwaves.crop(kx_range=[-4/a,4/a],ky_range=[-4/b,4/b])
+exitwaves.plot(nuke_zerobeam=True,powerscaling=.125,filename="outputs/figs/05_tacaw_diffcrop.png")
 
+tacaw = TACAWData(exitwaves)
 
 # MANUAL PLOTTING
 #print(tacaw.frequencies, tacaw.frequencies[65])
