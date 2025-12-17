@@ -93,7 +93,7 @@ class MultisliceCalculator:
             'slice_thickness': slice_thickness,
             'sampling': sampling,
             'probe_positions': probe_positions,
-            'backend': 'pytorch' if TORCH_AVAILABLE else 'numpy'
+            'backend': 'pytorch' if TORCH_AVAILABLE else 'numpy',
         }
         param_str = str(sorted(params.items()))
         return hashlib.md5(param_str.encode()).hexdigest()[:12]
@@ -112,6 +112,8 @@ class MultisliceCalculator:
         cleanup_temp_files: bool = False,
         slice_axis: int = 2,
         cache_levels: list = ["exitwaves"], # options include: exitwaves, slices, potentials (this replaces store_all_slices)
+        max_kx = np.inf,
+        max_ky = np.inf,
     ):
         """
         Set up multislice simulation using PyTorch acceleration.
@@ -141,6 +143,8 @@ class MultisliceCalculator:
         self.cleanup_temp_files = cleanup_temp_files
         self.slice_axis = slice_axis
         self.cache_levels = cache_levels
+        self.max_kx = max_kx
+        self.max_ky = max_ky
 
         # Generate cache key and setup output directory
         cache_key = self._generate_cache_key(trajectory, aperture, voltage_eV,
@@ -155,6 +159,17 @@ class MultisliceCalculator:
         self.lx = lx ; self.ly = ly ; self.lz = lz
         self.nx = nx ; self.ny = ny ; self.nz = nz
         self.dx = xs[1]-xs[0] ; self.dy = ys[1]-ys[0] ; self.dy = ys[1]-ys[0]
+
+        # calculate kxs kys here, so we can crop them, since we'll pre-allocate wavefunction_data below
+        self.kxs = xp.fft.fftshift(xp.fft.fftfreq(self.nx, self.sampling))  # k-space in 1/Å
+        self.kys = xp.fft.fftshift(xp.fft.fftfreq(self.ny, self.sampling))  # k-space in 1/Å
+        self.i1 = xp.argwhere(self.kxs >= -max_kx)[0]   # first element >=
+        self.i2 = xp.argwhere(self.kxs <= max_kx)[-1]+1 # last element <=, +1, so i1:i2 includes i2
+        self.j1 = xp.argwhere(self.kys >= -max_ky)[0]
+        self.j2 = xp.argwhere(self.kys <= max_ky)[-1]+1
+        self.kxs = self.kxs[self.i1:self.i2]
+        self.kys = self.kys[self.j1:self.j2]
+        self.nx = self.i2 - self.i1 ; self.ny = self.j2 - self.j1 ; nx = self.nx ; ny = self.ny
 
         # Set up default probe position if not provided
         if self.probe_positions is None:
@@ -216,6 +231,9 @@ class MultisliceCalculator:
 
                 frame_idx_result, frame_data, was_cached = _process_frame_worker_torch(args)
                 
+                # crop frame's diffraction image
+                frame_data = frame_data[:,self.i1:self.i2,self.j1:self.j2,:,:]
+
                 # Store result
                 for probe_idx in range(self.n_probes):
                     if "slices" in self.cache_levels:
@@ -254,8 +272,8 @@ class MultisliceCalculator:
         # TWP: If we're not going to also provide a shifted/etc reciprocal_array, we shouldn't shift the kxs
         #kxs = xp.fft.fftfreq(self.nx, d=self.dx)
         #kys = xp.fft.fftfreq(self.ny, d=self.dy)
-        kxs = xp.fft.fftshift(xp.fft.fftfreq(self.nx, self.sampling))  # k-space in 1/Å
-        kys = xp.fft.fftshift(xp.fft.fftfreq(self.ny, self.sampling))  # k-space in 1/Å
+        #kxs = xp.fft.fftshift(xp.fft.fftfreq(self.nx, self.sampling))  # k-space in 1/Å MOVING TO INIT SO WE CAN CROP ON-THE-FLY
+        #kys = xp.fft.fftshift(xp.fft.fftfreq(self.ny, self.sampling))  # k-space in 1/Å
         time_array = np.arange(self.n_frames) * self.trajectory.timestep  # Time array in ps
         layer_array = np.arange(self.nz) if "slices" in self.cache_levels else np.array([0])  # Layer indices
         
@@ -263,8 +281,8 @@ class MultisliceCalculator:
         wf_data = WFData(
             probe_positions=self.probe_positions,
             time=time_array,
-            kxs=kxs,
-            kys=kys,
+            kxs=self.kxs,
+            kys=self.kys,
             xs=self.xs,
             ys=self.ys,
             layer=layer_array,

@@ -86,6 +86,8 @@ class Trajectory:
                     offset = np.array([i, j, k]) @ self.box_matrix
                     offsets.append(offset)
 
+        #print("self.box_matrix",self.box_matrix)
+
         # Apply offsets to create tiled positions and velocities
         tiled_positions = []
         tiled_velocities = []
