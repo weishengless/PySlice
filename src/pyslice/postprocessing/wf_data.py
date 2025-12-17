@@ -385,7 +385,8 @@ class WFData(Signal):
     def propagate_free_space(self,dz): # UNITS OF ANGSTROM
         kx_grid, ky_grid = xp.meshgrid(self._kxs, self._kys, indexing='ij')
         k_squared = kx_grid**2 + ky_grid**2
-        P = xp.exp(-1j * xp.pi * self.probe.wavelength * dz * k_squared)
+        inner = xp.pi * self.probe.wavelength * dz * k_squared
+        P = xp.exp( -1j * inner ) # not sure why, but combining this and previous line triggers a "ComplexWarning: Casting complex values to real discards the imaginary part" in python 2.9.1 but not 2.2.2
         if TORCH_AVAILABLE and isinstance(self._array, torch.Tensor):
             P = P.to(self._array.device)
         #if dz>0:
