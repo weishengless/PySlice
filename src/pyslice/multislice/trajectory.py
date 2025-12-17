@@ -55,8 +55,17 @@ class Trajectory:
         return np.array([self.box_matrix[0, 1], self.box_matrix[0, 2], self.box_matrix[1, 2]])
 
     @property
-    def size(self):
-        return np.diag(self.box_matrix)
+    def extent(self) -> np.ndarray:
+        """Return Cartesian extent (x, y, z) of the cell in Angstroms.
+
+        Computes the bounding box of the parallelepiped defined by the lattice vectors.
+        Useful for determining sampling: sampling = extent / n_pixels.
+        """
+        a, b, c = self.box_matrix[0], self.box_matrix[1], self.box_matrix[2]
+        corners = np.array([
+            [0, 0, 0], a, b, c, a+b, a+c, b+c, a+b+c
+        ])
+        return corners.max(axis=0) - corners.min(axis=0)
 
     def get_mean_positions(self) -> np.ndarray: # TODO: THIS DOES NOT INCLUDE WRAPPING (what if an atom drifts out of the bbox and comes back in through PBC?)
         """Calculate the mean position for each atom over all frames."""
