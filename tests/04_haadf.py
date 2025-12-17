@@ -3,11 +3,8 @@ try:
     import pyslice
 except ModuleNotFoundError:
     sys.path.insert(0, '../src')
-from pyslice.io.loader import Loader
-from pyslice.multislice.multislice import probe_grid
-from pyslice.multislice.calculators import MultisliceCalculator
-from pyslice.postprocessing.haadf_data import HAADFData
-from pyslice.postprocessing.testtools import differ
+
+from pyslice import Loader,probe_grid,MultisliceCalculator,HAADFData,differ
 import numpy as np
 import matplotlib.pyplot as plt
 import os,shutil

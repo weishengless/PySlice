@@ -1,15 +1,16 @@
-import sys,os
+import sys,os,time
 try:
     import pyslice
 except ModuleNotFoundError:
     print("import failed, falling back to relative paths")
     sys.path.insert(0, '../src')
+start=time.time()
 from pyslice.multislice.multislice import Probe
-from pyslice.postprocessing.testtools import differ
-#except ModuleNotFoundError:
-#    sys.path.insert(0, '../src/pyslice')
-##    from multislice.multislice import Probe
-#    from postprocessing.testtools import differ
+print("probe import took",time.time()-start,"s")
+
+start=time.time()
+from pyslice import differ
+print("differ import took",time.time()-start,"s")
 
 import numpy as np
 

@@ -23,8 +23,6 @@ xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5
 potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 potential.plot()
 
-
-
 xy=probe_grid([a,3*a],[b,3*b],14,16) # comment out to default to middle position
 #xy = None
 

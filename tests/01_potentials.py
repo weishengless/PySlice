@@ -4,14 +4,9 @@ try:
 except ModuleNotFoundError:
     sys.path.insert(0, '../src')
 
-from pyslice.io.loader import Loader
-from pyslice.multislice.potentials import gridFromTrajectory,Potential
-from pyslice.postprocessing.testtools import differ
+from pyslice import Loader,gridFromTrajectory,Potential,differ
+
 import numpy as np
-#from ..pyslice.tacaw.ms_calculator_npy import gridFromTrajectory
-#from pyslice.tacaw.multislice_npy import Probe,Propagate ; import numpy as xp
-#from pyslice.tacaw.multislice_torch import Probe,PropagateBatch,create_batched_probes ; import torch as xp
-#from pyslice.tacaw.potential import Potential
 
 dump="inputs/hBN_truncated.lammpstrj"
 dt=.005
