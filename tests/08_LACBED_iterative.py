@@ -3,15 +3,12 @@ try:
     import pyslice
 except ModuleNotFoundError:
     sys.path.insert(0, '../src')
-from pyslice.io.loader import Loader
-from pyslice.multislice.multislice import probe_grid
-from pyslice.multislice.calculators import MultisliceCalculator
-from pyslice.postprocessing.haadf_data import HAADFData
-from pyslice.multislice.potentials import gridFromTrajectory,Potential
-from pyslice.postprocessing.testtools import differ
+
+from pyslice import Loader,probe_grid,MultisliceCalculator,HAADFData,gridFromTrajectory,Potential,differ
+
 import numpy as np
 import matplotlib.pyplot as plt
-import os,shutil
+import shutil
 
 #dump="inputs/hBN_truncated.lammpstrj" ; dt=.005 ; types={1:"B",2:"N"}
 dump="inputs/Si_truncated.lammpstrj" ; dt=.002 ; types={1:"Si"}

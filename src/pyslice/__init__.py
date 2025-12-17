@@ -13,4 +13,5 @@ from .multislice.potentials import *
 from .multislice.sed import *
 from .multislice.trajectory import *
 from .postprocessing.haadf_data import *
+from .postprocessing.tacaw_data import *
 from .postprocessing.testtools import *

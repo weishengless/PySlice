@@ -1,17 +1,14 @@
-	# Convert tensors to numpy for matplotlibimport sys,os
+import sys,os
 try:
 	import pyslice
 except ModuleNotFoundError:
-	import sys
 	sys.path.insert(0, '../src')
-from pyslice.io.loader import Loader
-from pyslice.multislice.multislice import probe_grid,Probe,Propagate
-from pyslice.multislice.potentials import gridFromTrajectory,Potential
-from pyslice.multislice.calculators import MultisliceCalculator
-from pyslice.postprocessing.testtools import differ
+
+from pyslice import Loader,probe_grid,Probe,Propagate,gridFromTrajectory,Potential,MultisliceCalculator,differ
+
 import numpy as np
 import matplotlib.pyplot as plt
-import os,shutil
+import shutil
 
 #if os.path.exists("psi_data"):
 #	shutil.rmtree("psi_data")

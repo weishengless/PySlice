@@ -3,9 +3,9 @@ try:
     import pyslice
 except ModuleNotFoundError:
     sys.path.insert(0, '../src')
-from pyslice.io.loader import Loader
-from pyslice.multislice.potentials import gridFromTrajectory, Potential
-from pyslice.postprocessing.testtools import differ
+
+from pyslice import Loader,gridFromTrajectory,Potential,differ
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -31,16 +31,23 @@ testFiles={"silicon.positions":{"atom_style":"molecular"},	# lammps input positi
 
 # for each: load, generate potential, plot potential
 for i,filename in enumerate(testFiles.keys()):
+	# LOAD IT
 	print("attempting to load","inputs/"+filename)
 	trajectory=Loader("inputs/"+filename,ovitokwargs=testFiles[filename]).load()
-	#trajectory = trajectory.generate_random_displacements(n_displacements=10,sigma=1)
-	#print(len(trajectory.positions))
+	# DIFF IT
+	positions = trajectory.positions[0]
+	differ(positions,"outputs/loaders-test_"+filename+".npy","POSITIONS")
+	# TILE IT (optional)
+	if "cif" in filename or "xyz" in filename:
+		trajectory = trajectory.tile_positions([5,5,1]) # add tiling so we can catch orthogonalization issues
 	positions = trajectory.positions[0]
 	atom_types=trajectory.atom_types
+	# PLOT IT
 	xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5)
 	potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
+	print("saving plot for",filename,"to","06_loaders_"+str(i)+".png")
 	potential.plot("outputs/figs/06_loaders_"+str(i)+".png")
-	differ(positions,"outputs/loaders-test_"+filename+".npy","POSITIONS")
+
 
 # Test loading from ASE Atoms object (single frame)
 print("\nTesting ASE Atoms object loading (single frame)")

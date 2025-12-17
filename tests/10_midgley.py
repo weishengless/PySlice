@@ -3,13 +3,12 @@ try:
     import pyslice
 except ModuleNotFoundError:
     sys.path.insert(0, '../src')
-from pyslice.io.loader import Loader
-from pyslice.multislice.multislice import probe_grid,wavelength
-from pyslice.multislice.calculators import MultisliceCalculator
-from pyslice.postprocessing.tacaw_data import TACAWData
+
+from pyslice import Loader,probe_grid,wavelength,MultisliceCalculator,TACAWData
+
 import numpy as np
 import matplotlib.pyplot as plt
-import os,shutil
+import shutil
 
 #if os.path.exists("psi_data"):
 #	shutil.rmtree("psi_data")
