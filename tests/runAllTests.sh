@@ -1,30 +1,12 @@
-python3 00_probe.py
-python3.12 00_probe.py
-python3 01_potentials.py
-python3.12 01_potentials.py
-#python3 01_potentials2.py
-#python3.12 01_potentials2.py
-python3 02_propagate_otf=False.py
-python3.12 02_propagate_otf=False.py
-python3 02_propagate_otf=True.py
-python3.12 02_propagate_otf=True.py
-python3 03_manyprobes.py
-python3.12 03_manyprobes.py
-python3 04_haadf.py
-python3.12 04_haadf.py
-python3 05_tacaw.py
-python3.12 05_tacaw.py
-python3 06_loaders.py
-python3.12 06_loaders.py
-python3 07_defocus.py
-python3.12 07_defocus.py
-python3 08_LACBED_iterative.py
-python3.12 08_LACBED_iterative.py
-python3 08_LACBED_onthefly.py
-python3.12 08_LACBED_onthefly.py
-python3 10_midgley.py
-python3.12 10_midgley.py
-python3 11_SED.py
-python3.12 11_SED.py
-python3 12_aberrations.py
-python3.12 12_aberrations.py
+scripts=( "00_probe.py" "01_potentials.py" "02_propagate_otf=False.py" "02_propagate_otf=True.py" "03_manyprobes.py" "04_haadf.py" "05_tacaw.py" "05_tacaw_chunkFFT.py" "05_tacaw_cropped.py" "06_loaders.py" "07_defocus.py" "08_LACBED_iterative.py" "08_LACBED_onthefly.py" "10_midgley.py" "11_SED.py" "12_aberrations.py" )
+
+
+for s in ${scripts[@]}
+do
+	for version in 3 3.13 3.9
+	do
+		echo python$version $s
+		python$version $s
+        rm -rf psi_data/*
+	done
+done

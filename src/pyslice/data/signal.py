@@ -7,7 +7,7 @@ Copied from sea-eco with minimal modifications.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List, Any, Dict, Tuple, Callable, Literal, Union
-from types import EllipsisType
+#from types import EllipsisType
 from collections.abc import Iterable
 from matplotlib.axes import Axes as mplAxes
 import matplotlib.pyplot as plt
@@ -695,7 +695,7 @@ class Dimension(SEASerializable):
     def __repr__(self):
         return f'<Dimension name:{self.name} ndim:{self.ndim} size:{self.size}>'
 
-    def __getitem__(self, key: Union[int, float, slice, tuple, EllipsisType]):
+    def __getitem__(self, key: Union[int, float, slice, tuple]):
         """Support indexing and slicing of the Signal.
 
         Parameters
@@ -1264,7 +1264,7 @@ class Signal(SEASerializable):
     def __repr__(self):
         return f'<Signal name="{self.name}" signal_type={self.signal_type} dimensions_domain={self.dimensions_domain}>'
 
-    def __getitem__(self, key: Union[int, float, slice, tuple, EllipsisType]):
+    def __getitem__(self, key: Union[int, float, slice, tuple ]):
         """Support indexing and slicing of the Signal.
 
         Parameters
@@ -1291,10 +1291,10 @@ class Signal(SEASerializable):
         n_dims = len(self.dimensions.dimensions)
         ellipsis_pos = None
 
-        for i, k in enumerate(key):
-            if k is Ellipsis:
-                ellipsis_pos = i
-                break
+        #for i, k in enumerate(key):
+        #    if k is Ellipsis:
+        #        ellipsis_pos = i
+        #        break
 
         if ellipsis_pos is not None:
             # Calculate how many dimensions the Ellipsis represents
