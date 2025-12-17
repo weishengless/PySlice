@@ -164,10 +164,10 @@ class MultisliceCalculator:
         # calculate kxs kys here, so we can crop them, since we'll pre-allocate wavefunction_data below
         self.kxs = xp.fft.fftshift(xp.fft.fftfreq(self.nx, self.sampling))  # k-space in 1/Å
         self.kys = xp.fft.fftshift(xp.fft.fftfreq(self.ny, self.sampling))  # k-space in 1/Å
-        self.i1 = xp.argwhere(self.kxs >= -max_kx)[0]   # first element >=
-        self.i2 = xp.argwhere(self.kxs <= max_kx)[-1]+1 # last element <=, +1, so i1:i2 includes i2
-        self.j1 = xp.argwhere(self.kys >= -max_ky)[0]
-        self.j2 = xp.argwhere(self.kys <= max_ky)[-1]+1
+        self.i1 = xp.argwhere(self.kxs >= -max_kx)[0][0]   # first element >=
+        self.i2 = xp.argwhere(self.kxs <= max_kx)[-1][0]+1 # last element <=, +1, so i1:i2 includes i2
+        self.j1 = xp.argwhere(self.kys >= -max_ky)[0][0]
+        self.j2 = xp.argwhere(self.kys <= max_ky)[-1][0]+1
         self.kxs = self.kxs[self.i1:self.i2]
         self.kys = self.kys[self.j1:self.j2]
         self.nx = self.i2 - self.i1 ; self.ny = self.j2 - self.j1 ; nx = self.nx ; ny = self.ny
