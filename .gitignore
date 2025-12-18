@@ -25,6 +25,7 @@ test_results/
 *.npy
 !*-test.npy
 *.png
+!tests/outputs/figs/*.png
 *.jpg
 *.jpeg
 
@@ -47,6 +48,7 @@ Thumbs.db
 # Log files
 *.log
 logs/
+!tests/runAllTests.log
 
 # Temporary files
 *.tmp
