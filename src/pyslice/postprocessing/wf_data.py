@@ -53,6 +53,8 @@ class WFData(Signal):
     def __init__(
         self,
         probe_positions: List[Tuple[float, float]],
+        probe_xs: List[float],
+        probe_ys: List[float],
         time: np.ndarray,
         kxs: np.ndarray,
         kys: np.ndarray,
@@ -65,6 +67,8 @@ class WFData(Signal):
     ):
         # Store raw attributes (may be tensors for GPU operations)
         self.probe_positions = probe_positions
+        self.probe_xs = probe_xs
+        self.probe_ys = probe_ys
         self._time = time
         self._kxs = kxs
         self._kys = kys

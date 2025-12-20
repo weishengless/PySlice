@@ -67,8 +67,8 @@ class HAADFData(Signal):
 
         # Initialize ADF as None, will be computed by calculateADF
         self._array = None
-        self._xs = None
-        self._ys = None
+        self._xs = wf_data.probe_xs
+        self._ys = wf_data.probe_ys
 
         # Build placeholder dimensions (will be updated after calculateADF)
         dimensions = Dimensions([
@@ -152,8 +152,8 @@ class HAADFData(Signal):
             ADF image array (x × y)
         """
         # Use float_dtype to ensure MPS compatibility (float32 on MPS, float64 otherwise)
-        self._xs = xp.asarray(sorted(list(set(self.probe_positions[:,0]))), dtype=float_dtype)
-        self._ys = xp.asarray(sorted(list(set(self.probe_positions[:,1]))), dtype=float_dtype)
+        #self._xs = xp.asarray(sorted(list(set(self.probe_positions[:,0]))), dtype=float_dtype)
+        #self._ys = xp.asarray(sorted(list(set(self.probe_positions[:,1]))), dtype=float_dtype)
         self._array = xp.zeros((len(self._xs), len(self._ys)), dtype=float_dtype)
 
         q = xp.sqrt(self._kxs[:,None]**2 + self._kys[None,:]**2)

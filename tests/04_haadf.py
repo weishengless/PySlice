@@ -24,11 +24,15 @@ trajectory=Loader(dump,timestep=dt,atom_mapping=types).load()
 trajectory=trajectory.slice_positions([0,10*a],[0,10*b])
 # SELECT 10 "RANDOM" TIMESTEPS (use seed for reproducibility)
 trajectory=trajectory.get_random_timesteps(3,seed=5)
-# SET UP GRID OF HAADF SCAN POINTS
-xy=probe_grid([a,3*a],[b,3*b],14,16)
-
+# CREATE CALCULATOR OBJECT
 calculator=MultisliceCalculator()
-calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_positions=xy,cache_levels=[])
+# SET UP GRID OF HAADF SCAN POINTS
+#xy=probe_grid([a,3*a],[b,3*b],14,16)
+#calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_positions=xy,cache_levels=[])
+probe_xs = np.linspace(a,3*a,14)
+probe_ys = np.linspace(b,3*b,16)
+calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_xs=probe_xs,probe_ys=probe_ys,cache_levels=[])
+# RUN MULTISLICE
 exitwaves = calculator.run()
 
 exitwaves.plot_reciprocal(filename="outputs/figs/04_haadf_cbed.png")

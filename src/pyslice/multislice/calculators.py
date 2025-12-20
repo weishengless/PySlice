@@ -106,6 +106,8 @@ class MultisliceCalculator:
         defocus: float = 0.0,
         slice_thickness: float = 0.5,
         sampling: float = 0.1,
+        probe_xs: Optional[List[float]] = None,
+        probe_ys: Optional[List[float]] = None,
         probe_positions: Optional[List[Tuple[float, float]]] = None,
         batch_size: int = 10,
         save_path: Optional[Path] = None,
@@ -138,6 +140,8 @@ class MultisliceCalculator:
         self.defocus = defocus
         self.slice_thickness = slice_thickness
         self.sampling = sampling
+        self.probe_xs = probe_xs
+        self.probe_ys = probe_ys
         self.probe_positions = probe_positions
         self.save_path = save_path
         self.cleanup_temp_files = cleanup_temp_files
@@ -172,9 +176,15 @@ class MultisliceCalculator:
         self.kys = self.kys[self.j1:self.j2]
         self.nx = self.i2 - self.i1 ; self.ny = self.j2 - self.j1 ; nx = self.nx ; ny = self.ny
 
+        # Preferred to pass probe_xs and probe_ys from which we will define a grid
+        if self.probe_xs is not None and self.probe_ys is not None:
+            x,y = np.meshgrid(self.probe_xs,self.probe_ys,indexing='ij')
+            self.probe_positions = np.asarray(list(zip(x.flat,y.flat)))
+
         # Set up default probe position if not provided
         if self.probe_positions is None:
             self.probe_positions = [(lx/2, ly/2)]  # Center probe
+            self.probe_xs = [lx/2] ; self.probe_ys = [ly/2]
 
         # Create probe on the correct device from the start
         self.base_probe = Probe(xs, ys, self.aperture, self.voltage_eV, device=self.device)
@@ -281,6 +291,8 @@ class MultisliceCalculator:
         # Package results
         wf_data = WFData(
             probe_positions=self.probe_positions,
+            probe_xs=self.probe_xs,
+            probe_ys=self.probe_ys,
             time=time_array,
             kxs=self.kxs,
             kys=self.kys,
