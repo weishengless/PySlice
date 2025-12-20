@@ -169,7 +169,7 @@ class HAADFData(Signal):
         for i, x in enumerate(self._xs):
             for j, y in enumerate(self._ys):
                 dxy = xp.sqrt(xp.sum((probe_positions - xp.asarray([x, y], dtype=float_dtype)[None, :]) ** 2, axis=1))
-                p = xp.argmin(dxy)
+                p = xp.argmin(dxy) # TODO inferring point from grid is still quite goofy. maybe we should track a grid of indices (if we're going to leave p as a single index in the final t,p,kx,ky,l datacube)
                 exits = self._wf_array[p, :, :, :, -1]  # which probe position, all frames, kx, ky, last layer
 
                 if preview and i == 0 and j == 0:
