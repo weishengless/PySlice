@@ -18,9 +18,10 @@ exitwaves.plot(powerscaling=.125)                   # sums across frozen-phonon 
 ## Generating a HAADF image:
 ```
 trajectory = Loader(dump,atom_mapping=types).load() # Load your MD trajectory for frozen phonons, or load in a cif/xyz/etc file and "trajectory = trajectory.generate_random_displacements(N)"
-xy = probe_grid([a,3*a],[b,3*b],14,16)              # pick your HAADF field-of-view
+probe_xs = np.linspace(a,3*a,14)                    # pick your scan field of view
+probe_ys = np.linspace(b,3*b,16)
 calculator = MultisliceCalculator()
-calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_positions=xy)
+calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_xs=probe_xs,probe_ys=probe_ys,cache_levels=[])
 exitwaves = calculator.run()                        # exitwaves object contains reciprocal-space exit wave for each probe position for each atomic configuration
 haadf = HAADFData(exitwaves)                        # ADF calculator sums over collection angles
 ary = haadf.calculateADF(preview=True)
