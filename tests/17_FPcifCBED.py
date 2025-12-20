@@ -4,7 +4,7 @@ try:
 except ModuleNotFoundError:
     sys.path.insert(0, '../src')
 
-from pyslice import Loader,probe_grid,gridFromTrajectory,Potential,MultisliceCalculator,HAADFData,differ
+from pyslice import Loader,gridFromTrajectory,Potential,MultisliceCalculator,HAADFData,differ
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,11 +20,13 @@ xs,ys,zs,lx,ly,lz=gridFromTrajectory(trajectory,sampling=0.1,slice_thickness=0.5
 potential = Potential(xs, ys, zs, positions, atom_types, kind="kirkland")
 potential.plot("outputs/figs/17_potential.png")
 
-xy=probe_grid([a,3*a],[b,3*b],14,16) # comment out to default to middle position
+#xy=probe_grid([a,3*a],[b,3*b],14,16) # comment out to default to middle position
 #xy = None
+probe_xs = np.linspace(a,3*a,14)
+probe_ys = np.linspace(b,3*b,16)
 
 calculator=MultisliceCalculator()
-calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_positions=xy)
+calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thickness=.5,probe_xs=probe_xs,probe_ys=probe_ys)
 exitwaves = calculator.run()
 
 exitwaves.plot_reciprocal("outputs/figs/17_cbed.png") # can also specify whichProbe and whichTimestep instead of averaging

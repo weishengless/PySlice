@@ -152,6 +152,13 @@ class WFData(Signal):
         """Backward compatible alias for internal array (may be tensor or numpy)."""
         return self._array
 
+    @property
+    def reshaped(self): # where self._array is indices probe,time,kx,ky,layer, we reshape to probe_x,probe_y,time,kx,ky,layer
+        npt,nt,nkx,nky,nl = self._array.shape
+        nx=len(self.probe_xs)
+        ny=len(self.probe_ys)
+        return xp.reshape(self._array,(nx,ny,nt,nkx,nky,nl))
+
     @array.setter
     def array(self, value):
         self._array = value

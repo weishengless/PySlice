@@ -36,18 +36,19 @@ calculator.setup(trajectory,aperture=30,voltage_eV=100e3,sampling=.1,slice_thick
 exitwaves = calculator.run()
 
 exitwaves.plot_reciprocal(filename="outputs/figs/04_haadf_cbed.png")
-#print(exitwaves.wavefunction_data.shape)
-# exitwaves.wavefunction_data is reciprocal-space now! 
-#ary=np.mean(np.absolute(exitwaves.wavefunction_data[:,:,:,:,-1]),axis=1)
-#q=np.sqrt(exitwaves.kxs[:,None]**2+exitwaves.kys[None,:]**2)
-#mask=np.zeros(q.shape) ; mask[q>2]=1
+
+# 4D-STEM EXAMPLE, OR, DIY-ADF, JUST TO DEMO HOW TO NAVIGATE THE AXES
+#ary = np.asarray(exitwaves.reshaped) # .array would be p,t,kx,ky,l indices, but .reshaped is x,y,t,kx,ky,l
+#xs = exitwaves.probe_xs ; ys = exitwaves.probe_ys # real-space dimensions
+#kx = exitwaves.kxs ; ky = exitwaves.kys		# reciprocal-space dimensions
+#print(ary.shape,len(xs),len(ys),len(kx),len(ky))
+#mask = np.zeros((len(kx),len(ky)))				# for ADF we'll mask in reciprocal space
+#kr = np.sqrt(kx[:,None]**2+ky[None,:]**2)
+#mask[kr>3]=1
+#ary*=mask[None,None,None,:,:,None]				# apply mask along x,y,t,[kx,ky],l axes
+#ary=np.sum(np.absolute(ary),axis=(2,3,4,5))	# sume along x,y,[t,kx,ky,l] axes
 #fig, ax = plt.subplots()
-#print(ary.shape,q.shape)
-#ax.imshow(np.absolute(ary[0])**.1, cmap="inferno")
-#plt.show()
-#fig, ax = plt.subplots()
-#HAADF=np.sum(np.absolute(ary*mask[None,:]),axis=(1,2)).reshape((len(x),len(y)))
-#ax.imshow(HAADF, cmap="inferno")
+#ax.imshow(ary.T, cmap="inferno")
 #plt.show()
 
 haadf=HAADFData(exitwaves)

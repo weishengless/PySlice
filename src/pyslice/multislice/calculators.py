@@ -180,6 +180,7 @@ class MultisliceCalculator:
         if self.probe_xs is not None and self.probe_ys is not None:
             x,y = np.meshgrid(self.probe_xs,self.probe_ys,indexing='ij')
             self.probe_positions = np.asarray(list(zip(x.flat,y.flat)))
+            lx = len(self.probe_xs) ; ly = len(self.probe_ys)
 
         # Set up default probe position if not provided
         if self.probe_positions is None:

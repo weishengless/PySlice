@@ -63,7 +63,7 @@ class HAADFData(Signal):
         self.cache_dir = wf_data.cache_dir
 
         # Store reference to source WFData array for ADF calculation
-        self._wf_array = wf_data.array
+        self._wf_array = wf_data.reshaped # x,y,t,kx,ky,l indices
 
         # Initialize ADF as None, will be computed by calculateADF
         self._array = None
@@ -166,23 +166,35 @@ class HAADFData(Signal):
 
         probe_positions = xp.asarray(self.probe_positions, dtype=float_dtype)
 
-        for i, x in enumerate(self._xs):
-            for j, y in enumerate(self._ys):
-                dxy = xp.sqrt(xp.sum((probe_positions - xp.asarray([x, y], dtype=float_dtype)[None, :]) ** 2, axis=1))
-                p = xp.argmin(dxy) # TODO inferring point from grid is still quite goofy. maybe we should track a grid of indices (if we're going to leave p as a single index in the final t,p,kx,ky,l datacube)
-                exits = self._wf_array[p, :, :, :, -1]  # which probe position, all frames, kx, ky, last layer
+        #for i, x in enumerate(self._xs):
+        #    for j, y in enumerate(self._ys):
+        #        dxy = xp.sqrt(xp.sum((probe_positions - xp.asarray([x, y], dtype=float_dtype)[None, :]) ** 2, axis=1))
+        #        p = xp.argmin(dxy) # TODO inferring point from grid is still quite goofy. maybe we should track a grid of indices (if we're going to leave p as a single index in the final t,p,kx,ky,l datacube)
+        #        exits = self._wf_array[p, :, :, :, -1]  # which probe position, all frames, kx, ky, last layer
+        #
+        #        if preview and i == 0 and j == 0:
+        #            import matplotlib.pyplot as plt
+        #            fig, ax = plt.subplots()
+        #            preview_data = xp.mean(xp.absolute(exits), axis=0) ** .1 * (1 - mask)
+        #            if TORCH_AVAILABLE:
+        #                preview_data = preview_data.cpu().numpy()
+        #            ax.imshow(preview_data, cmap="inferno")
+        #            plt.show()
+        #
+        #        collected = xp.mean(xp.sum(xp.absolute(exits * mask[None, :, :]), axis=(1, 2)))
+        #        self._array[i, j] = collected
 
-                if preview and i == 0 and j == 0:
-                    import matplotlib.pyplot as plt
-                    fig, ax = plt.subplots()
-                    preview_data = xp.mean(xp.absolute(exits), axis=0) ** .1 * (1 - mask)
-                    if TORCH_AVAILABLE:
-                        preview_data = preview_data.cpu().numpy()
-                    ax.imshow(preview_data, cmap="inferno")
-                    plt.show()
 
-                collected = xp.mean(xp.sum(xp.absolute(exits * mask[None, :, :]), axis=(1, 2)))
-                self._array[i, j] = collected
+        # recall self._wf_array is reshaped: p,t,kx,ky,l --> x,y,t,kx,ky,l
+        if preview:
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots()
+            preview_data = xp.mean(xp.absolute(self._wf_array),axis=(0,1,2,5))**.2 * (1 - mask)
+            ax.imshow(np.asarray(preview_data), cmap="inferno")
+            plt.show()
+
+        collected = self._wf_array * mask[None,None,None,:,:,None] # x,y,t,kx,ky,l indices, mask is kx,ky
+        self._array = xp.mean(xp.sum(xp.absolute(collected),axis=(3,4)),axis=(2,3)) # sum over kx,ky, mean over t,l
 
         # Update dimensions with computed xs, ys
         def to_numpy(x):

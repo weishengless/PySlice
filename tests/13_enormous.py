@@ -2,7 +2,7 @@
 
 import sys,os
 from pyslice.io.loader import Loader
-from pyslice.multislice.multislice import probe_grid,wavelength
+from pyslice.multislice.multislice import wavelength
 from pyslice.multislice.calculators import MultisliceCalculator
 import numpy as np
 import matplotlib.pyplot as plt
