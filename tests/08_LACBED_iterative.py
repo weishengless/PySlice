@@ -9,6 +9,10 @@ from pyslice import Loader,MultisliceCalculator,HAADFData,gridFromTrajectory,Pot
 import numpy as np
 import matplotlib.pyplot as plt
 import shutil
+try:
+	import torch as xp
+except:
+	xp = np
 
 #dump="inputs/hBN_truncated.lammpstrj" ; dt=.005 ; types={1:"B",2:"N"}
 dump="inputs/Si_truncated.lammpstrj" ; dt=.002 ; types={1:"Si"}
@@ -49,10 +53,10 @@ for i in range(10):
 		calculator.base_probe._array = last_slice_exit # FYI: the calling user really shouldn't be setting "internal" variables, but this iterative script is really just meant to be a demo of the hacky capabilities
 	# RUN THE SIMULATION
 	exitwaves = calculator.run()
-	exit_data = exitwaves.array[0,0,:,:,0] # ".array" converts torch tensor to CPU numpy array automatically if required
+	exit_data = exitwaves._array[0,0,:,:,0] # ".array" converts torch tensor to CPU numpy array automatically if required
 	#if hasattr(exit_data, 'cpu'):
 	#	exit_data = exit_data.cpu().numpy()
-	last_slice_exit = np.fft.ifft2(np.fft.ifftshift(exit_data))
+	last_slice_exit = xp.fft.ifft2(xp.fft.ifftshift(exit_data)) # must stick with torch for these manual shenanigans! 
 
 # REPROPAGATE TO PROBE FOCAL POINT		
 exitwaves.propagate_free_space(1000-10*calculator.lz)
