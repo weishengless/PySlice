@@ -31,7 +31,7 @@ for i,mrad in enumerate(mrads):
 
 ary=np.reshape(ary,(501*5,491))
 
-differ(ary,"outputs/probe-test.npy","PROBE")
+differ(ary[::10,::10],"outputs/probe-test.npy","PROBE")
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots()

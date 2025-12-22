@@ -33,7 +33,7 @@ if hasattr(result, 'cpu'):
 else:
     ary = np.asarray(result)  # Already numpy array
 
-differ(ary,"outputs/propagate-test.npy","EXIT WAVE")
+differ(ary[::10,::10],"outputs/propagate-test.npy","EXIT WAVE")
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots()

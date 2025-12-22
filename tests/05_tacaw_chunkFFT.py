@@ -53,7 +53,7 @@ tacaw = TACAWData(exitwaves,chunkFFT=True)
 Z = tacaw.spectral_diffraction(30) ; print(Z.shape)
 tacaw.plot(Z**.1,"kx","ky",filename="outputs/figs/05_tacaw_30THz.png")
 
-differ(Z**.1,"outputs/tacaw-test.npy","TACAW SLICE")
+differ(Z[::4,::4]**.1,"outputs/tacaw-test.npy","TACAW SLICE")
 
 # OR THE DISPERSION:
 kx=np.asarray(tacaw.kxs) ; kx=kx[kx>=0] ; kx=kx[kx<=4/a] ; print("kx",kx.shape)

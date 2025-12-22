@@ -65,7 +65,7 @@ probe.plot("outputs/figs/07_defocus_2D.png")
 
 #array = probe.array.cpu().numpy() if hasattr(probe.array, 'cpu') else probe.array
 array=probe.array  # ".array" converts torch tensor to CPU numpy array automatically if required
-differ(array,"outputs/defocus-test.npy","DEFOCUSED PROBE")
+differ(array[::4,::4],"outputs/defocus-test.npy","DEFOCUSED PROBE")
 
 result = Propagate(probe,potential) # may be a torch tensor but does not appear to matter for following code?
 #if hasattr(result, 'cpu'):

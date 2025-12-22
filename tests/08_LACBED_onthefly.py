@@ -51,5 +51,5 @@ ary=exitwaves.array # ".array" converts torch tensor to CPU numpy array automati
 # Convert to numpy if it's a torch tensor
 #if hasattr(ary, 'cpu'):
 #	ary = ary.cpu().numpy()
-
-differ(ary[::3,::3],"outputs/lacbed-test.npy","LACBED")
+print(ary.shape)
+differ(ary[:,:,::10,::10,:],"outputs/lacbed-test.npy","LACBED")

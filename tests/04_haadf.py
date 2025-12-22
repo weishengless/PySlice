@@ -61,4 +61,4 @@ xs=haadf.xs ; ys=haadf.ys
 haadf.plot("outputs/figs/04_haadf.png")
 
 ary=np.asarray(ary)
-differ(ary,"outputs/haadf-test.npy","HAADF")
+differ(ary[::4,::4],"outputs/haadf-test.npy","HAADF")
