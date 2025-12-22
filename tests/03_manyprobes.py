@@ -51,8 +51,8 @@ kys = potential.kys
 # result may be a torch tensor (since Calculators and friends don't want the exit wave moved off-device yet, and we do not expect the end user to call Propagate directly)
 if hasattr(result, 'cpu'):
     ary = result.cpu().numpy()  # Convert PyTorch tensor to numpy
-    kxs = kxs.cpu().numpy()
-    kys = kxs.cpu().numpy()
+    kxs = np.asarray(kxs)
+    kys = np.asarray(kys)
 else:
     ary = np.asarray(result)  # Already numpy array
 
