@@ -52,7 +52,7 @@ for z in zs:
 		xs_p = np.asarray(xs_p.cpu()) # also need to convert to numpy if using Torch/gpu
 		ys_p = np.asarray(ys_p.cpu())
 
-	CS=plt.contour(xs_np[::3], ys_np[::3], (z+np.absolute(array[::3,::3])/zmax).T) #, levels=lv,alpha=alpha,cmap=cmap)
+	CS=plt.contour(xs_p[::3], ys_p[::3], (z+np.absolute(array[::3,::3])/zmax).T) #, levels=lv,alpha=alpha,cmap=cmap)
 	probe.defocus(dz)
 #plt.show()	
 plt.savefig("outputs/figs/07_defocus_3D.png")
